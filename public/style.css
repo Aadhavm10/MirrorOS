@@ -85,6 +85,22 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
+/* Time-of-day visibility
+   morning  → weather + calendar
+   day      → clock + next calendar event (weather hidden)
+   evening  → clock + calendar (tomorrow's first event, weather hidden)
+   night    → dim clock only
+*/
+body.mode-day #weather-section,
+body.mode-evening #weather-section,
+body.mode-night #weather-section {
+  display: none;
+}
+
+body.mode-night #calendar-section {
+  display: none;
+}
+
 /* Night mode: dim the clock */
 body.mode-night #clock {
   opacity: 0.35;
