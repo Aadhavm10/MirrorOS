@@ -105,7 +105,9 @@ async function fetchCalendar() {
   }
 
   allEvents.sort((a, b) => new Date(a.startISO) - new Date(b.startISO));
-  return allEvents.slice(0, 3);
+  // Return more than the display max (3) so the frontend can filter by
+  // mode (e.g. evening needs tomorrow's first event even if today is busy)
+  return allEvents.slice(0, 6);
 }
 
 // Exported separately so createEvent() can be added later without restructuring

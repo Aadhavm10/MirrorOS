@@ -24,11 +24,13 @@ html, body {
 }
 
 #top-third {
-  height: 640px;
-  padding: 48px 56px;
+  height: 672px;
+  padding: 40px 56px;
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 32px;
+  /* Hard guarantee: nothing ever renders below the top third into the mirror zone */
+  overflow: hidden;
 }
 
 /* Clock */

@@ -17,6 +17,9 @@ function updateClock() {
   updateMode(now.getHours());
 }
 
+let currentMode = null;
+let lastData = null;
+
 function updateMode(hour) {
   let mode;
   if (hour >= 5 && hour < 10)       mode = 'morning';
@@ -24,9 +27,15 @@ function updateMode(hour) {
   else if (hour >= 18 && hour < 23) mode = 'evening';
   else                               mode = 'night';
 
+  if (mode === currentMode) return;
+  currentMode = mode;
+
   const body = document.body;
   body.classList.remove('mode-morning', 'mode-day', 'mode-evening', 'mode-night');
   body.classList.add(`mode-${mode}`);
+
+  // Re-filter calendar for the new mode without waiting for the next poll
+  if (lastData) renderCalendar(lastData.calendar);
 }
 
 function renderWeather(w) {
@@ -57,9 +66,37 @@ function formatEventTime(startISO, isAllDay) {
   return `${dayLabel} · ${hour}:${pad(d.getMinutes())} ${ampm}`;
 }
 
+// Which events each mode cares about:
+//   morning — today's events (spec: weather + today's events prominent)
+//   day     — the single next event
+//   evening — tomorrow's first event (so I know when to set an alarm)
+//   night   — none (section is hidden by CSS anyway)
+function eventsForMode(events, mode) {
+  const now = new Date();
+  const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const endOfTomorrow = new Date(startOfTomorrow.getTime() + 86400000);
+
+  switch (mode) {
+    case 'morning':
+      return events.filter(e => new Date(e.startISO) < startOfTomorrow).slice(0, 3);
+    case 'day':
+      return events.slice(0, 1);
+    case 'evening':
+      return events
+        .filter(e => {
+          const d = new Date(e.startISO);
+          return d >= startOfTomorrow && d < endOfTomorrow;
+        })
+        .slice(0, 1);
+    default:
+      return [];
+  }
+}
+
 function renderCalendar(events) {
   const section = document.getElementById('calendar-section');
-  if (!events || events.length === 0) { section.innerHTML = ''; return; }
+  events = eventsForMode(events || [], currentMode);
+  if (events.length === 0) { section.innerHTML = ''; return; }
   section.innerHTML = events.map(e => `
     <div class="cal-event">
       <div class="cal-event-title">${e.title}</div>
@@ -72,6 +109,7 @@ async function fetchData() {
   try {
     const res = await fetch('/api/data');
     const data = await res.json();
+    lastData = data;
     renderWeather(data.weather);
     renderCalendar(data.calendar);
   } catch (err) {
