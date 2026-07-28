@@ -1,13 +1,16 @@
 const BASE = 'https://api.open-meteo.com/v1/forecast';
-const PARAMS = [
-  'latitude=32.9483',
-  'longitude=-96.7299',
-  'current=temperature_2m,weathercode,precipitation_probability',
-  'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max',
-  'temperature_unit=fahrenheit',
-  'timezone=America/Chicago',
-  'forecast_days=2',
-].join('&');
+
+function buildParams() {
+  return [
+    `latitude=${process.env.WEATHER_LAT || '32.9483'}`,
+    `longitude=${process.env.WEATHER_LON || '-96.7299'}`,
+    'current=temperature_2m,weathercode,precipitation_probability',
+    'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    'temperature_unit=fahrenheit',
+    `timezone=${encodeURIComponent(process.env.TZ || 'America/Chicago')}`,
+    'forecast_days=2',
+  ].join('&');
+}
 
 const WMO = {
   0: 'Clear',
@@ -25,7 +28,7 @@ module.exports = {
   key: 'weather',
   intervalMs: 5 * 60 * 1000,
   async fetch() {
-    const res = await globalThis.fetch(`${BASE}?${PARAMS}`);
+    const res = await globalThis.fetch(`${BASE}?${buildParams()}`);
     if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
     const json = await res.json();
     return {

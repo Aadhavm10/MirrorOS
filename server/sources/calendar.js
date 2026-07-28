@@ -63,7 +63,26 @@ function parseEvents(icsData, rangeStart, rangeEnd) {
   return events;
 }
 
+// Dev-only fake events so the calendar layout can be verified in all
+// time-of-day modes before real CalDAV credentials exist
+function mockEvents() {
+  const now = new Date();
+  const at = (dayOffset, hour, min = 0) =>
+    new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, hour, min).toISOString();
+  return [
+    { title: 'Gym', startISO: at(0, 18, 30), isAllDay: false },
+    { title: 'Dinner with family', startISO: at(0, 20, 0), isAllDay: false },
+    { title: 'Team standup', startISO: at(1, 9, 0), isAllDay: false },
+    { title: 'Dentist appointment', startISO: at(1, 14, 30), isAllDay: false },
+    { title: 'Trash day', startISO: at(2, 0, 0), isAllDay: true },
+  ].filter(e => new Date(e.startISO) >= now || e.isAllDay);
+}
+
 async function fetchCalendar() {
+  if (process.env.MOCK_CALENDAR === '1') {
+    return mockEvents().slice(0, 6);
+  }
+
   if (!process.env.CALDAV_USERNAME || !process.env.CALDAV_PASSWORD) {
     throw new Error('CALDAV_USERNAME or CALDAV_PASSWORD not set in .env');
   }
