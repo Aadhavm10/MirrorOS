@@ -85,6 +85,30 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
+/* Calendar */
+#calendar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.cal-event {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cal-event-title {
+  font-size: 36px;
+  font-weight: 500;
+}
+
+.cal-event-time {
+  font-size: 28px;
+  font-weight: 500;
+  color: #b0b0b0;
+}
+
 /* Time-of-day visibility
    morning  → weather + calendar
    day      → clock + next calendar event (weather hidden)

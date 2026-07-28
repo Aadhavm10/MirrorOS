@@ -37,12 +37,43 @@ function renderWeather(w) {
   document.getElementById('weather-rain').textContent = `Rain: ${w.rainChance}%`;
 }
 
+function formatEventTime(startISO, isAllDay) {
+  const d = new Date(startISO);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today.getTime() + 86400000);
+  const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  let dayLabel;
+  if (eventDay.getTime() === today.getTime())         dayLabel = 'Today';
+  else if (eventDay.getTime() === tomorrow.getTime()) dayLabel = 'Tomorrow';
+  else                                                dayLabel = DAYS[d.getDay()].slice(0, 3);
+
+  if (isAllDay) return `${dayLabel} · All day`;
+
+  const h = d.getHours();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return `${dayLabel} · ${hour}:${pad(d.getMinutes())} ${ampm}`;
+}
+
+function renderCalendar(events) {
+  const section = document.getElementById('calendar-section');
+  if (!events || events.length === 0) { section.innerHTML = ''; return; }
+  section.innerHTML = events.map(e => `
+    <div class="cal-event">
+      <div class="cal-event-title">${e.title}</div>
+      <div class="cal-event-time">${formatEventTime(e.startISO, e.isAllDay)}</div>
+    </div>
+  `).join('');
+}
+
 async function fetchData() {
   try {
     const res = await fetch('/api/data');
     const data = await res.json();
     renderWeather(data.weather);
-    // Phase 3: renderCalendar(data.calendar)
+    renderCalendar(data.calendar);
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);
   }

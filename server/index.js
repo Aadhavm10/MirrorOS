@@ -16,7 +16,7 @@ app.get('/api/data', (req, res) => {
 
 const sources = [
   require('./sources/weather'),
-  // require('./sources/calendar'),  // Phase 3
+  require('./sources/calendar'),
 ];
 
 startPolling(sources);
