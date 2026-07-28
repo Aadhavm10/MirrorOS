@@ -20,9 +20,13 @@ function updateClock() {
 let currentMode = null;
 let lastData = null;
 
+// Dev: force a mode with ?mode=morning|day|evening|night to preview layouts
+const FORCED_MODE = new URLSearchParams(location.search).get('mode');
+
 function updateMode(hour) {
   let mode;
-  if (hour >= 5 && hour < 10)       mode = 'morning';
+  if (FORCED_MODE)                  mode = FORCED_MODE;
+  else if (hour >= 5 && hour < 10)  mode = 'morning';
   else if (hour >= 10 && hour < 18) mode = 'day';
   else if (hour >= 18 && hour < 23) mode = 'evening';
   else                               mode = 'night';
