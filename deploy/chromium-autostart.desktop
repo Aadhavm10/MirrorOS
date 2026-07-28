@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=MirrorOS Chromium
+Exec=/home/mirror/MirrorOS/deploy/chromium-launch.sh
+X-GNOME-Autostart-enabled=true

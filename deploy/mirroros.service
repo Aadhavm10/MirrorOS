@@ -1,0 +1,15 @@
+[Unit]
+Description=MirrorOS Backend
+After=network.target
+
+[Service]
+Type=simple
+User=mirror
+WorkingDirectory=/home/mirror/MirrorOS
+ExecStart=/usr/bin/node server/index.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

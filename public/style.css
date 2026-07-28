@@ -1,0 +1,61 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  cursor: none;
+  animation: none !important;
+  transition: none !important;
+}
+
+html, body {
+  background: #000000;
+  color: #ffffff;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+#mirror {
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+}
+
+#top-third {
+  height: 640px;
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* Clock */
+#clock {
+  font-size: 128px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+#date {
+  font-size: 38px;
+  font-weight: 500;
+  color: #d0d0d0;
+  margin-top: 12px;
+}
+
+/* Dev mode: scale the 1080x1920 canvas to fit a laptop screen */
+body.dev-mode #mirror {
+  transform: scale(0.45);
+  transform-origin: top left;
+}
+
+/* Night mode: dim the clock */
+body.mode-night #clock {
+  opacity: 0.35;
+}
+body.mode-night #date {
+  opacity: 0.35;
+}
