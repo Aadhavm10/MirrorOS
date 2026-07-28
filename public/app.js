@@ -29,12 +29,20 @@ function updateMode(hour) {
   body.classList.add(`mode-${mode}`);
 }
 
+function renderWeather(w) {
+  if (!w) return;
+  document.getElementById('weather-temp').textContent = `${w.temp}°`;
+  document.getElementById('weather-condition').textContent = w.condition;
+  document.getElementById('weather-high-low').textContent = `H: ${w.high}°  L: ${w.low}°`;
+  document.getElementById('weather-rain').textContent = `Rain: ${w.rainChance}%`;
+}
+
 async function fetchData() {
   try {
     const res = await fetch('/api/data');
     const data = await res.json();
-    console.log('[mirror] /api/data:', data);
-    // Phase 2+: render weather, calendar here
+    renderWeather(data.weather);
+    // Phase 3: renderCalendar(data.calendar)
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);
   }

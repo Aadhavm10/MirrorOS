@@ -14,10 +14,9 @@ app.get('/api/data', (req, res) => {
   res.json(cache.getAll());
 });
 
-// Register data sources here as they're added (Phase 2+)
 const sources = [
-  // require('./sources/weather'),
-  // require('./sources/calendar'),
+  require('./sources/weather'),
+  // require('./sources/calendar'),  // Phase 3
 ];
 
 startPolling(sources);

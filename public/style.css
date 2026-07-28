@@ -52,6 +52,39 @@ body.dev-mode #mirror {
   transform-origin: top left;
 }
 
+/* Weather */
+#weather-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#weather-primary {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+}
+
+#weather-temp {
+  font-size: 80px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+#weather-condition {
+  font-size: 40px;
+  font-weight: 500;
+  color: #d0d0d0;
+}
+
+#weather-secondary {
+  display: flex;
+  gap: 36px;
+  font-size: 30px;
+  font-weight: 500;
+  color: #b0b0b0;
+}
+
 /* Night mode: dim the clock */
 body.mode-night #clock {
   opacity: 0.35;
