@@ -52,9 +52,11 @@ function renderWeather(w) {
 
 function renderPollen(pollen) {
   const el = document.getElementById('weather-pollen');
-  const active = (pollen || []).filter(p => p.value > 0);
-  if (active.length === 0) { el.textContent = ''; return; }
-  el.textContent = 'Pollen: ' + active.map(p => `${p.name} ${p.category}`).join(' · ');
+  if (!pollen || pollen.length === 0) { el.textContent = ''; return; } // no data yet
+  const active = pollen.filter(p => p.value > 0);
+  el.textContent = 'Pollen: ' + (active.length
+    ? active.map(p => `${p.name} ${p.category}`).join(' · ')
+    : 'None');
 }
 
 function renderCommute(c) {
