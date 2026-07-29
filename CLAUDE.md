@@ -46,7 +46,7 @@ New phone-editable preferences should be added as fields in `server/config.js` d
 - Font weight: 500 minimum — thin weights vanish through mirror glass
 - NO animations, transitions, or scrolling anywhere
 - `cursor: none` on everything
-- All content lives in `#top-third` (640px tall) — bottom of screen stays pure black
+- All content lives in `#top-third` (960px tall — the top half; name is historical) — bottom of screen stays pure black
 
 ## Time-of-day modes
 | Mode | Hours | Show |

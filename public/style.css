@@ -28,12 +28,12 @@ html, body {
      → 816px wide at 1920 tall, centered; panel edges stay pure black */
   width: 816px;
   margin: 0 auto;
-  height: 672px;
+  height: 960px; /* top half of the panel; grew from 672 when week row + pollen + commute landed */
   padding: 40px 48px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
-  /* Hard guarantee: nothing ever renders below the top third into the mirror zone */
+  gap: 28px;
+  /* Hard guarantee: nothing ever renders below the content zone into the mirror zone */
   overflow: hidden;
 }
 
