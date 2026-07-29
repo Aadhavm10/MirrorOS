@@ -124,6 +124,16 @@ body.dev-mode #mirror {
 #today-event .cal-event-title { font-size: 34px; font-weight: 500; }
 #today-event .cal-event-time { font-size: 26px; font-weight: 500; color: #b0b0b0; margin-top: 4px; }
 
+/* Stale data: dim the section rather than hide it — the value is still
+   roughly useful, it just isn't current. No color, per the display rules. */
+.stale { opacity: 0.4; }
+
+#health-line {
+  font-size: 26px;
+  font-weight: 500;
+  color: #909090;
+}
+
 /* ---- Right rail sections ---- */
 .rail-heading {
   font-size: 24px;
@@ -237,7 +247,8 @@ body.sleeping #commute-section,
 body.sleeping #today-event,
 body.sleeping #right-rail,
 body.sleeping #date,
-body.sleeping #greeting {
+body.sleeping #greeting,
+body.sleeping #health-line {
   display: none;
 }
 body.sleeping #clock { opacity: 0.3; }

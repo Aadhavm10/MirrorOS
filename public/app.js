@@ -14,6 +14,8 @@ if (params.has('no-motion')) document.body.classList.add('no-motion');
 const forcedLayout = params.get('layout');   // full | sleek
 const forcedVoice = params.get('voice');      // listening | thinking | speaking
 const forcedSleep = params.has('sleep');
+// ?stale=calendar,weather — preview the offline/stale treatment without waiting
+const forcedStale = (params.get('stale') || '').split(',').filter(Boolean);
 
 // --- Settings (from /api/data) ---------------------------------------------
 let settings = {
@@ -154,23 +156,45 @@ function nextUpcoming(events) {
   return (events || []).find((e) => new Date(e.startISO).getTime() >= now) || (events || [])[0];
 }
 
-function renderTodayEvent(events) {
-  const el = document.getElementById('today-event');
-  const e = todaysFirst(events);
-  el.innerHTML = e
-    ? `<div class="cal-event-title">${esc(e.title)}</div>
-       <div class="cal-event-time">Today · ${e.isAllDay ? 'All day' : fmtClock12(new Date(e.startISO))}</div>`
-    : '';
+// An empty calendar and an unreachable one look identical unless we say so.
+function calendarDown(health) {
+  return Boolean(health && health.calendar && health.calendar.stale);
 }
 
-function renderNextEvent(events) {
+function renderTodayEvent(events, health) {
+  const el = document.getElementById('today-event');
+  const e = todaysFirst(events);
+  if (e) {
+    el.classList.remove('unavailable');
+    el.innerHTML =
+      `<div class="cal-event-title">${esc(e.title)}</div>
+       <div class="cal-event-time">Today · ${e.isAllDay ? 'All day' : fmtClock12(new Date(e.startISO))}</div>`;
+  } else if (calendarDown(health)) {
+    el.classList.add('unavailable');
+    el.innerHTML = '<div class="cal-event-time">Calendar unavailable</div>';
+  } else {
+    el.classList.remove('unavailable');
+    el.innerHTML = '';
+  }
+}
+
+function renderNextEvent(events, health) {
   const el = document.getElementById('next-event');
   const e = nextUpcoming(events);
-  el.innerHTML = e
-    ? `<div class="rail-heading">NEXT</div>
+  if (e) {
+    el.classList.remove('unavailable');
+    el.innerHTML =
+      `<div class="rail-heading">NEXT</div>
        <div class="cal-event-title">${esc(e.title)}</div>
-       <div class="cal-event-time">${fmtEventLabel(e.startISO, e.isAllDay)}</div>`
-    : '';
+       <div class="cal-event-time">${fmtEventLabel(e.startISO, e.isAllDay)}</div>`;
+  } else if (calendarDown(health)) {
+    el.classList.add('unavailable');
+    el.innerHTML =
+      '<div class="rail-heading">NEXT</div><div class="cal-event-time">Calendar unavailable</div>';
+  } else {
+    el.classList.remove('unavailable');
+    el.innerHTML = '';
+  }
 }
 
 // --- News -------------------------------------------------------------------
@@ -179,6 +203,70 @@ function renderNews(news) {
   if (!news || !news.length) { el.innerHTML = ''; return; }
   el.innerHTML = '<div class="rail-heading">NEWS</div>' +
     news.map((n) => `<div class="news-item">${esc(n.title)}</div>`).join('');
+}
+
+// --- Health -----------------------------------------------------------------
+// The mirror should never quietly show yesterday's data as if it were current,
+// and an empty calendar must not look the same as an unreachable one.
+
+const SOURCE_LABELS = {
+  weather: 'Weather', calendar: 'Calendar', commute: 'Commute',
+  pollen: 'Pollen', news: 'News',
+};
+
+const HEALTH_SECTIONS = {
+  weather: ['weather-section', 'week-section'],
+  calendar: ['today-event', 'next-event'],
+  commute: ['commute-section'],
+  pollen: ['weather-pollen'],
+  news: ['news-section'],
+};
+
+function applyForcedStale(health) {
+  if (!forcedStale.length) return health;
+  const out = { ...(health || {}) };
+  for (const key of forcedStale) {
+    out[key] = { configured: true, stale: true, ageMs: 42 * 60 * 1000, failures: 3 };
+  }
+  return out;
+}
+
+function renderHealth(health) {
+  const line = document.getElementById('health-line');
+  if (!health) { line.textContent = ''; return; }
+
+  // Only sources that have worked before can be "stale" — one that has never
+  // succeeded is unconfigured (no Google key, say), not broken.
+  const stale = Object.keys(health).filter((k) => health[k].stale);
+  const live = Object.keys(health).filter((k) => health[k].configured);
+
+  for (const [key, ids] of Object.entries(HEALTH_SECTIONS)) {
+    const isStale = Boolean(health[key] && health[key].stale);
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      // Don't dim a section whose content is already an "unavailable" notice —
+      // that text is the signal, and it needs to stay readable.
+      if (el) el.classList.toggle('stale', isStale && !el.classList.contains('unavailable'));
+    }
+  }
+
+  if (stale.length === 0) {
+    line.textContent = '';
+  } else if (live.length > 0 && stale.length === live.length) {
+    // Everything at once means the network is down, not five broken APIs
+    const newest = Math.min(...stale.map((k) => health[k].ageMs));
+    line.textContent = `Offline — data from ${fmtAge(newest)} ago`;
+  } else {
+    const names = stale.map((k) => SOURCE_LABELS[k] || k);
+    line.textContent = `${names.join(' and ')} not updating`;
+  }
+}
+
+function fmtAge(ms) {
+  const mins = Math.round(ms / 60000);
+  if (mins < 60) return `${mins} min`;
+  const hours = Math.round(mins / 60);
+  return hours === 1 ? '1 hour' : `${hours} hours`;
 }
 
 // --- Data poll --------------------------------------------------------------
@@ -191,12 +279,14 @@ async function fetchData() {
       applyLayout();
       updateClock();
     }
+    const health = applyForcedStale(data.health);
     renderWeather(data.weather);
     renderPollen(data.pollen);
     renderCommute(data.commute);
-    renderTodayEvent(data.calendar);
-    renderNextEvent(data.calendar);
+    renderTodayEvent(data.calendar, health);
+    renderNextEvent(data.calendar, health);
     renderNews(data.news);
+    renderHealth(health);
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);
   }

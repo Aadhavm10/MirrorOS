@@ -17,6 +17,7 @@ app.get('/api/data', (req, res) => {
   res.json({
     ...cache.getAll(),
     settings: { timezone: weather.timezone, display },
+    health: cache.health(),
   });
 });
 

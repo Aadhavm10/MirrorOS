@@ -5,6 +5,7 @@ async function runSource(source) {
     const data = await source.fetch();
     cache.set(source.key, data);
   } catch (err) {
+    cache.fail(source.key, err.message);
     console.error(`[poller] ${source.key} failed:`, err.message);
   }
 }
@@ -14,6 +15,7 @@ let registered = [];
 function startPolling(sources) {
   registered = sources;
   for (const source of sources) {
+    cache.register(source.key, source.intervalMs);
     runSource(source);
     setInterval(() => runSource(source), source.intervalMs);
   }
