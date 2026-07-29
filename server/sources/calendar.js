@@ -36,6 +36,11 @@ function parseEvents(icsData, rangeStart, rangeEnd) {
     for (const vevent of comp.getAllSubcomponents('vevent')) {
       const event = new ICAL.Event(vevent);
       const isAllDay = event.startDate.isDate;
+      // All-day events start at midnight but stay relevant all day —
+      // compare them against the start of today, not the current time
+      const minStart = isAllDay
+        ? new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate())
+        : rangeStart;
 
       if (event.isRecurring()) {
         const expand = new ICAL.RecurExpansion({
@@ -46,13 +51,13 @@ function parseEvents(icsData, rangeStart, rangeEnd) {
         while ((next = expand.next())) {
           const d = next.toJSDate();
           if (d > rangeEnd) break;
-          if (d >= rangeStart) {
+          if (d >= minStart) {
             events.push({ title: esc(event.summary || '(No title)'), startISO: d.toISOString(), isAllDay });
           }
         }
       } else {
         const d = event.startDate.toJSDate();
-        if (d >= rangeStart && d <= rangeEnd) {
+        if (d >= minStart && d <= rangeEnd) {
           events.push({ title: esc(event.summary || '(No title)'), startISO: d.toISOString(), isAllDay });
         }
       }
