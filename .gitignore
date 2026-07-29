@@ -6,3 +6,5 @@ voice/.venv/
 voice/models/
 voice/voice.env
 server/spotify-tokens.json
+__pycache__/
+*.pyc
