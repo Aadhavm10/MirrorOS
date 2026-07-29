@@ -136,12 +136,10 @@ body.dev-mode #mirror {
 
 /* Time-of-day visibility
    morning  → weather + calendar
-   day      → clock + next calendar event (weather hidden)
-   evening  → clock + calendar (tomorrow's first event, weather hidden)
+   day      → weather + next calendar event
+   evening  → weather + calendar (tomorrow's first event)
    night    → dim clock only
 */
-body.mode-day #weather-section,
-body.mode-evening #weather-section,
 body.mode-night #weather-section {
   display: none;
 }

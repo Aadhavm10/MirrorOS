@@ -50,8 +50,8 @@ New phone-editable preferences should be added as fields in `server/config.js` d
 | Mode | Hours | Show |
 |------|-------|------|
 | morning | 5–10 | weather + today's calendar events |
-| day | 10–18 | clock + next calendar event |
-| evening | 18–23 | clock + tomorrow's first event |
+| day | 10–18 | weather + next calendar event |
+| evening | 18–23 | weather + tomorrow's first event |
 | night | 23–5 | dim clock only |
 
 ## Build phases
