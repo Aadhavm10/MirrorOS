@@ -107,4 +107,50 @@ document.getElementById('commute-save').addEventListener('click', async () => {
   }
 });
 
+// --- Add calendar event ---
+
+const alldayToggle = document.getElementById('event-allday');
+
+alldayToggle.addEventListener('change', () => {
+  const hidden = alldayToggle.checked;
+  document.getElementById('event-time-field').style.visibility = hidden ? 'hidden' : 'visible';
+  document.getElementById('event-duration-field').style.visibility = hidden ? 'hidden' : 'visible';
+});
+
+document.getElementById('event-save').addEventListener('click', async () => {
+  const btn = document.getElementById('event-save');
+  const title = document.getElementById('event-title').value.trim();
+  const date = document.getElementById('event-date').value;
+  const time = document.getElementById('event-time').value;
+  const isAllDay = alldayToggle.checked;
+
+  if (!title) return showToast('Give the event a title.', true);
+  if (!date) return showToast('Pick a date.', true);
+  if (!isAllDay && !time) return showToast('Pick a time (or mark it all-day).', true);
+
+  // Build a local Date; toISOString converts to UTC for the server
+  const startISO = new Date(`${date}T${isAllDay ? '00:00' : time}`).toISOString();
+
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/calendar/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title,
+        startISO,
+        durationMinutes: Number(document.getElementById('event-duration').value) || 60,
+        isAllDay,
+      }),
+    });
+    if (!res.ok) throw new Error('create failed');
+    document.getElementById('event-title').value = '';
+    showToast(`"${title}" added to your calendar ✓`);
+  } catch {
+    showToast('Could not create the event — try again.', true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 loadConfig().catch(() => showToast('Could not reach the mirror.', true));

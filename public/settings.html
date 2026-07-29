@@ -49,6 +49,36 @@
       <button id="commute-save">Save commute</button>
     </section>
 
+    <section class="card">
+      <h2>Add calendar event</h2>
+      <label for="event-title">Title</label>
+      <input id="event-title" type="text" placeholder="Dentist appointment" autocapitalize="sentences">
+      <div class="field-row">
+        <div>
+          <label for="event-date">Date</label>
+          <input id="event-date" type="date">
+        </div>
+        <div id="event-time-field">
+          <label for="event-time">Time</label>
+          <input id="event-time" type="time">
+        </div>
+      </div>
+      <div class="field-row">
+        <div id="event-duration-field">
+          <label for="event-duration">Duration (min)</label>
+          <input id="event-duration" type="number" value="60" min="1" max="1440" step="5">
+        </div>
+        <div>
+          <label for="event-allday">All day</label>
+          <label class="toggle">
+            <input id="event-allday" type="checkbox">
+            <span></span>
+          </label>
+        </div>
+      </div>
+      <button id="event-save">Add to calendar</button>
+    </section>
+
     <p id="toast" hidden></p>
 
     <p class="tip">

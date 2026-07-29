@@ -53,6 +53,37 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// Create an iCloud calendar event (syncs to all Apple devices)
+app.post('/api/calendar/event', async (req, res) => {
+  const { title, startISO, durationMinutes = 60, isAllDay = false } = req.body || {};
+
+  if (typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  const start = new Date(startISO);
+  if (!startISO || Number.isNaN(start.getTime())) {
+    return res.status(400).json({ error: 'startISO must be a valid date-time' });
+  }
+  const duration = Number(durationMinutes);
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 24 * 60) {
+    return res.status(400).json({ error: 'durationMinutes must be between 1 and 1440' });
+  }
+
+  try {
+    const result = await require('./sources/calendar').createEvent({
+      title: title.trim(),
+      startISO,
+      durationMinutes: duration,
+      isAllDay: Boolean(isAllDay),
+    });
+    refreshAll().catch(() => {}); // show the new event on the mirror right away
+    res.status(201).json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[calendar] createEvent failed:', err.message);
+    res.status(502).json({ error: 'could not create event on iCloud' });
+  }
+});
+
 const sources = [
   require('./sources/weather'),
   require('./sources/calendar'),
