@@ -3,6 +3,12 @@
 Voice control of Spotify playback ("hey Jarvis, play …"). Requires **Spotify
 Premium** — the Web API only allows playback control on Premium accounts.
 
+> **Important:** do all of this logged in as the account that will actually use
+> the mirror (the Premium account). Spotify dev apps start in "development
+> mode" where only the app owner can authorize — creating the app on one
+> account and logging in with another gets rejected unless that user is
+> manually allowlisted. Owner = user = simplest.
+
 Playback happens on your **active Spotify Connect device** (phone, computer,
 speaker). The mirror sends commands; it doesn't produce the audio itself.
 (Running librespot on the mirror to make it a speaker is a future addition.)
