@@ -13,6 +13,12 @@ function defaults() {
       latitude: parseFloat(process.env.WEATHER_LAT) || 32.9483,
       longitude: parseFloat(process.env.WEATHER_LON) || -96.7299,
     },
+    commute: {
+      origin: process.env.COMMUTE_ORIGIN || '',
+      destination: process.env.COMMUTE_DEST || '',
+      depart: process.env.COMMUTE_DEPART || '07:30',
+      label: process.env.COMMUTE_LABEL || 'Work',
+    },
   };
 }
 
@@ -44,6 +50,15 @@ function update(partial = {}) {
     if (typeof city === 'string' && city.trim()) config.weather.city = city.trim();
     if (Number.isFinite(latitude) && Math.abs(latitude) <= 90) config.weather.latitude = latitude;
     if (Number.isFinite(longitude) && Math.abs(longitude) <= 180) config.weather.longitude = longitude;
+  }
+  if (partial.commute && typeof partial.commute === 'object') {
+    const { origin, destination, depart, label } = partial.commute;
+    if (typeof origin === 'string') config.commute.origin = origin.trim();
+    if (typeof destination === 'string') config.commute.destination = destination.trim();
+    if (typeof depart === 'string' && /^([01]?\d|2[0-3]):[0-5]\d$/.test(depart.trim())) {
+      config.commute.depart = depart.trim();
+    }
+    if (typeof label === 'string' && label.trim()) config.commute.label = label.trim();
   }
   fs.writeFileSync(FILE, JSON.stringify(config, null, 2) + '\n');
   return config;

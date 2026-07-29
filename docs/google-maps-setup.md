@@ -44,22 +44,20 @@ last cached commute time. Nothing can bill.
 
 ## 6. Configure MirrorOS
 
-In `.env`:
+In `.env` (the key is the only required entry here):
 
 ```
 GOOGLE_MAPS_API_KEY=AIza...
-COMMUTE_ORIGIN=123 Home St, Richardson, TX 75080
-COMMUTE_DEST=456 Work Ave, Dallas, TX 75201
-COMMUTE_DEPART=07:30
-COMMUTE_LABEL=Work
 MOCK_COMMUTE=0
 ```
 
-Plain addresses work — Google geocodes them. `COMMUTE_DEPART` is the
-"leaving at" time for the second number; `COMMUTE_LABEL` is what the mirror
-shows ("Work", "School", etc.).
+Restart the server, then open **http://\<mirror-ip\>:3000/settings** on your
+phone and fill in the Commute card: home address, work address, "leave at"
+time, and a label ("Work", "School", etc.). Plain addresses work — Google
+geocodes them. Settings persist in `server/config.json`; changes apply
+immediately, no restart needed.
 
-Restart the server. The widget appears in **morning mode only** and shows:
+The widget appears in **morning mode only** and shows:
 
 ```
 Work    24 min now    31 min at 07:30

@@ -1,20 +1,24 @@
 // Morning commute via Google Routes API (traffic-aware).
 // Two numbers: duration leaving right now, and duration leaving at the
-// configured departure time (COMMUTE_DEPART, e.g. 07:30).
+// departure time configured on the /settings page (e.g. 07:30).
+// Only the API key stays in .env — addresses live in server/config.json.
 //
 // Quota safety: only polls during the morning window (matches when the
 // frontend shows it). ~120 requests/day, well under a 300/day quota cap.
+
+const config = require('../config');
 
 const ENDPOINT = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const MORNING_START = 5;
 const MORNING_END = 10;
 
 function mockCommute() {
+  const { label, depart } = config.get().commute;
   return {
-    label: process.env.COMMUTE_LABEL || 'Work',
+    label,
     nowMinutes: 24,
     departMinutes: 31,
-    departTime: process.env.COMMUTE_DEPART || '07:30',
+    departTime: depart,
   };
 }
 
@@ -28,9 +32,10 @@ function nextDeparture(hhmm) {
 }
 
 async function computeRoute(departureTime) {
+  const { origin, destination } = config.get().commute;
   const body = {
-    origin: { address: process.env.COMMUTE_ORIGIN },
-    destination: { address: process.env.COMMUTE_DEST },
+    origin: { address: origin },
+    destination: { address: destination },
     travelMode: 'DRIVE',
     routingPreference: 'TRAFFIC_AWARE',
   };
@@ -58,8 +63,12 @@ async function computeRoute(departureTime) {
 async function fetchCommute() {
   if (process.env.MOCK_COMMUTE === '1') return mockCommute();
 
-  if (!process.env.GOOGLE_MAPS_API_KEY || !process.env.COMMUTE_ORIGIN || !process.env.COMMUTE_DEST) {
-    throw new Error('GOOGLE_MAPS_API_KEY, COMMUTE_ORIGIN, or COMMUTE_DEST not set in .env');
+  const { origin, destination, depart } = config.get().commute;
+  if (!process.env.GOOGLE_MAPS_API_KEY) {
+    throw new Error('GOOGLE_MAPS_API_KEY not set in .env');
+  }
+  if (!origin || !destination) {
+    throw new Error('commute origin/destination not set — add them on the /settings page');
   }
 
   // Outside the morning window the widget is hidden — skip the API calls
@@ -68,17 +77,16 @@ async function fetchCommute() {
   const cached = require('../cache').get('commute');
   if ((hour < MORNING_START || hour >= MORNING_END) && cached) return cached;
 
-  const departTime = process.env.COMMUTE_DEPART || '07:30';
   const [nowMinutes, departMinutes] = await Promise.all([
     computeRoute(null),
-    computeRoute(nextDeparture(departTime)),
+    computeRoute(nextDeparture(depart)),
   ]);
 
   return {
-    label: process.env.COMMUTE_LABEL || 'Work',
+    label: config.get().commute.label,
     nowMinutes,
     departMinutes,
-    departTime,
+    departTime: depart,
   };
 }
 

@@ -30,6 +30,25 @@
       <div id="city-results"></div>
     </section>
 
+    <section class="card">
+      <h2>Commute</h2>
+      <label for="commute-origin">From</label>
+      <input id="commute-origin" type="text" placeholder="Home address" autocomplete="street-address">
+      <label for="commute-destination">To</label>
+      <input id="commute-destination" type="text" placeholder="Work address">
+      <div class="field-row">
+        <div>
+          <label for="commute-depart">Leave at</label>
+          <input id="commute-depart" type="time">
+        </div>
+        <div>
+          <label for="commute-label">Label</label>
+          <input id="commute-label" type="text" placeholder="Work">
+        </div>
+      </div>
+      <button id="commute-save">Save commute</button>
+    </section>
+
     <p id="toast" hidden></p>
 
     <p class="tip">

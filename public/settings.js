@@ -6,6 +6,10 @@ async function loadConfig() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
   document.getElementById('current-city').textContent = cfg.weather.city;
+  document.getElementById('commute-origin').value = cfg.commute.origin;
+  document.getElementById('commute-destination').value = cfg.commute.destination;
+  document.getElementById('commute-depart').value = cfg.commute.depart;
+  document.getElementById('commute-label').value = cfg.commute.label;
 }
 
 function showToast(message, isError = false) {
@@ -76,5 +80,31 @@ async function saveCity(label, city) {
     showToast('Could not save — try again.', true);
   }
 }
+
+document.getElementById('commute-save').addEventListener('click', async () => {
+  const btn = document.getElementById('commute-save');
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        commute: {
+          origin: document.getElementById('commute-origin').value,
+          destination: document.getElementById('commute-destination').value,
+          depart: document.getElementById('commute-depart').value,
+          label: document.getElementById('commute-label').value,
+        },
+      }),
+    });
+    if (!res.ok) throw new Error('save failed');
+    await loadConfig();
+    showToast('Commute saved ✓');
+  } catch {
+    showToast('Could not save — try again.', true);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 loadConfig().catch(() => showToast('Could not reach the mirror.', true));
