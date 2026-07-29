@@ -50,6 +50,13 @@ function renderWeather(w) {
   document.getElementById('weather-rain').textContent = `Rain: ${w.rainChance}%`;
 }
 
+function renderPollen(pollen) {
+  const el = document.getElementById('weather-pollen');
+  const active = (pollen || []).filter(p => p.value > 0);
+  if (active.length === 0) { el.textContent = ''; return; }
+  el.textContent = 'Pollen: ' + active.map(p => `${p.name} ${p.category}`).join(' · ');
+}
+
 function renderCommute(c) {
   const section = document.getElementById('commute-section');
   if (!c) { section.innerHTML = ''; return; }
@@ -127,6 +134,7 @@ async function fetchData() {
     const data = await res.json();
     lastData = data;
     renderWeather(data.weather);
+    renderPollen(data.pollen);
     renderCommute(data.commute);
     renderCalendar(data.calendar);
   } catch (err) {

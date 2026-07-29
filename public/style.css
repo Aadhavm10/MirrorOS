@@ -87,6 +87,12 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
+#weather-pollen {
+  font-size: 28px;
+  font-weight: 500;
+  color: #b0b0b0;
+}
+
 /* Commute (morning only) */
 .commute-line {
   display: flex;
@@ -135,9 +141,9 @@ body.dev-mode #mirror {
 }
 
 /* Time-of-day visibility
-   morning  → weather + calendar
-   day      → weather + next calendar event
-   evening  → weather + calendar (tomorrow's first event)
+   morning  → weather + pollen + commute + calendar
+   day      → weather + pollen + commute + next calendar event
+   evening  → weather + pollen + commute + calendar (tomorrow's first event)
    night    → dim clock only
 */
 body.mode-night #weather-section {
@@ -148,9 +154,6 @@ body.mode-night #calendar-section {
   display: none;
 }
 
-/* Commute only matters in the morning */
-body.mode-day #commute-section,
-body.mode-evening #commute-section,
 body.mode-night #commute-section {
   display: none;
 }

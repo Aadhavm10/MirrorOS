@@ -49,10 +49,12 @@ New phone-editable preferences should be added as fields in `server/config.js` d
 ## Time-of-day modes
 | Mode | Hours | Show |
 |------|-------|------|
-| morning | 5–10 | weather + today's calendar events |
-| day | 10–18 | weather + next calendar event |
-| evening | 18–23 | weather + tomorrow's first event |
+| morning | 5–10 | weather + pollen + commute + today's calendar events |
+| day | 10–18 | weather + pollen + commute + next calendar event |
+| evening | 18–23 | weather + pollen + commute + tomorrow's first event |
 | night | 23–5 | dim clock only |
+
+Commute data freshness: 5 min during morning (5–10), 20 min rest of day, cache-only overnight — keeps Routes API under its 300/day cap.
 
 ## Build phases
 - [x] Phase 1: Server + clock

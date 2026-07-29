@@ -57,6 +57,7 @@ const sources = [
   require('./sources/weather'),
   require('./sources/calendar'),
   require('./sources/commute'),
+  require('./sources/pollen'),
 ];
 
 startPolling(sources);

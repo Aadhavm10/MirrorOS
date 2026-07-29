@@ -3,14 +3,20 @@
 // departure time configured on the /settings page (e.g. 07:30).
 // Only the API key stays in .env — addresses live in server/config.json.
 //
-// Quota safety: only polls during the morning window (matches when the
-// frontend shows it). ~120 requests/day, well under a 300/day quota cap.
+// Quota safety: fresh every 5 min during the morning window (rush hour),
+// every 20 min the rest of the day, nothing overnight (widget hidden).
+// Morning 5h×12×2 = 120 + off-peak 13h×3×2 = 78 → ~198 requests/day,
+// under the 300/day quota cap.
 
 const config = require('../config');
 
 const ENDPOINT = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const MORNING_START = 5;
 const MORNING_END = 10;
+const NIGHT_START = 23;
+const OFF_PEAK_MAX_AGE_MS = 20 * 60 * 1000;
+
+let lastFetchMs = 0;
 
 function mockCommute() {
   const { label, depart } = config.get().commute;
@@ -71,16 +77,22 @@ async function fetchCommute() {
     throw new Error('commute origin/destination not set — add them on the /settings page');
   }
 
-  // Outside the morning window the widget is hidden — skip the API calls
-  // and keep whatever is cached rather than burning quota
+  // Freshness windows: morning = every poll (5 min), rest of the day =
+  // every 20 min, overnight (23–5) = cache only, the widget is hidden
   const hour = new Date().getHours();
   const cached = require('../cache').get('commute');
-  if ((hour < MORNING_START || hour >= MORNING_END) && cached) return cached;
+  const inMorning = hour >= MORNING_START && hour < MORNING_END;
+  const atNight = hour >= NIGHT_START || hour < MORNING_START;
+  if (cached) {
+    if (atNight) return cached;
+    if (!inMorning && Date.now() - lastFetchMs < OFF_PEAK_MAX_AGE_MS) return cached;
+  }
 
   const [nowMinutes, departMinutes] = await Promise.all([
     computeRoute(null),
     computeRoute(nextDeparture(depart)),
   ]);
+  lastFetchMs = Date.now();
 
   return {
     label: config.get().commute.label,
