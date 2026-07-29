@@ -46,8 +46,17 @@ function renderWeather(w) {
   if (!w) return;
   document.getElementById('weather-temp').textContent = `${w.temp}°`;
   document.getElementById('weather-condition').textContent = w.condition;
+  document.getElementById('weather-city').textContent = w.city || '';
   document.getElementById('weather-high-low').textContent = `H: ${w.high}°  L: ${w.low}°`;
   document.getElementById('weather-rain').textContent = `Rain: ${w.rainChance}%`;
+
+  const weekEl = document.getElementById('weather-week');
+  weekEl.innerHTML = (w.week || []).map(d => `
+    <div class="week-day">
+      <div class="week-day-name">${d.day}</div>
+      <div class="week-day-temps">${d.high}° <span>${d.low}°</span></div>
+    </div>
+  `).join('');
 }
 
 function renderPollen(pollen) {

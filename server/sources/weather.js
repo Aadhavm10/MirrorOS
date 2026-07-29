@@ -11,9 +11,11 @@ function buildParams() {
     'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max',
     'temperature_unit=fahrenheit',
     `timezone=${encodeURIComponent(process.env.TZ || 'America/Chicago')}`,
-    'forecast_days=2',
+    'forecast_days=8', // today + the next 7 for the week row
   ].join('&');
 }
+
+const DAY_ABBREV = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const WMO = {
   0: 'Clear',
@@ -34,12 +36,20 @@ module.exports = {
     const res = await globalThis.fetch(`${BASE}?${buildParams()}`);
     if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
     const json = await res.json();
+    // Days 1–7 (tomorrow onward); today's numbers are already shown big
+    const week = json.daily.time.slice(1, 8).map((date, i) => ({
+      day: DAY_ABBREV[new Date(`${date}T12:00:00`).getDay()],
+      high: Math.round(json.daily.temperature_2m_max[i + 1]),
+      low: Math.round(json.daily.temperature_2m_min[i + 1]),
+    }));
     return {
+      city: config.get().weather.city,
       temp: Math.round(json.current.temperature_2m),
       high: Math.round(json.daily.temperature_2m_max[0]),
       low: Math.round(json.daily.temperature_2m_min[0]),
       condition: WMO[json.current.weathercode] ?? 'Unknown',
       rainChance: json.daily.precipitation_probability_max[0],
+      week,
     };
   },
 };

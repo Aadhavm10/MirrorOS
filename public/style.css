@@ -87,6 +87,39 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
+#weather-city {
+  color: #d0d0d0;
+}
+
+/* Next 7 days, one column per day */
+#weather-week {
+  display: flex;
+  justify-content: space-between;
+  max-width: 820px;
+  margin-top: 8px;
+}
+
+.week-day {
+  text-align: center;
+}
+
+.week-day-name {
+  font-size: 24px;
+  font-weight: 500;
+  color: #b0b0b0;
+}
+
+.week-day-temps {
+  font-size: 26px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.week-day-temps span {
+  font-weight: 500;
+  color: #808080;
+}
+
 #weather-pollen {
   font-size: 28px;
   font-weight: 500;
