@@ -35,6 +35,13 @@ Secrets stay in `.env`; config.json is only for harmless preferences (weather ci
   (`public/manifest.json` + `public/icons/`).
 New phone-editable preferences should be added as fields in `server/config.js` defaults + validation, then a card on the settings page.
 
+### Assistant (voice brain)
+`server/assistant.js` — Claude Haiku 4.5 (`claude-haiku-4-5`) via `@anthropic-ai/sdk` tool runner.
+Tools: `get_mirror_data` (cache + config), `create_event` (CalDAV write), server-side web search.
+`POST /api/assistant {text}` → `{reply}` — spoken-style prose for TTS. Needs `ANTHROPIC_API_KEY` in `.env`.
+Short in-memory conversation history (5-min TTL). The voice pipeline (wake word/STT/TTS in `voice/`)
+is a separate client of this endpoint — keep the brain and the audio layer decoupled.
+
 ### Frontend
 - Clock ticks every 1s via `setInterval` + `new Date()` (no server needed)
 - `/api/data` polled every 60s, results rendered by widget-specific functions in `public/app.js`

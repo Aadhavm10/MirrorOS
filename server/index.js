@@ -84,6 +84,25 @@ app.post('/api/calendar/event', async (req, res) => {
   }
 });
 
+// Voice assistant brain (text in → spoken-style text out).
+// The voice pipeline posts transcripts here; also handy for curl testing.
+app.post('/api/assistant', async (req, res) => {
+  const text = String((req.body && req.body.text) || '').trim();
+  if (!text) return res.status(400).json({ error: 'text is required' });
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({
+      error: 'ANTHROPIC_API_KEY not set in .env — create one at console.anthropic.com',
+    });
+  }
+  try {
+    const reply = await require('./assistant').ask(text);
+    res.json({ reply });
+  } catch (err) {
+    console.error('[assistant] failed:', err.message);
+    res.status(502).json({ error: 'assistant failed' });
+  }
+});
+
 const sources = [
   require('./sources/weather'),
   require('./sources/calendar'),
