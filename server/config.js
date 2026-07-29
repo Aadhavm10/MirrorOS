@@ -22,7 +22,7 @@ function defaults() {
     },
     display: {
       mode: 'sleek', // 'sleek' | 'full'
-      greeting: { name: 'Gorgeous', customLine: '' },
+      greeting: { name: 'Gorgeous', customLine: 'Have a beautiful day' },
       sleep: { enabled: false, start: '23:00', end: '06:00' },
     },
     news: {
