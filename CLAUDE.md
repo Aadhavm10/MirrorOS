@@ -2,6 +2,8 @@
 
 Custom smart mirror software for a Surface Pro 4 mounted behind two-way mirror glass.
 Display is a 43" 1080p panel in **portrait orientation: 1080×1920**.
+Content renders in an **816px-wide centered column** (lululemon Mirror body
+proportions, 22.4"×52.7"); the panel outside the column stays pure black.
 
 ## Stack
 - **Backend**: Node.js + Express, `server/index.js` entry point
