@@ -176,6 +176,25 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
+/* Voice assistant indicator — transient, shows in every mode (even night:
+   if she's talking to the mirror, she should see it responding) */
+#voice-section {
+  margin-top: auto; /* pin to the bottom of the content zone */
+}
+
+.voice-status {
+  font-size: 30px;
+  font-weight: 500;
+  color: #d0d0d0;
+}
+
+.voice-text {
+  font-size: 34px;
+  font-weight: 500;
+  color: #ffffff;
+  margin-top: 6px;
+}
+
 /* Time-of-day visibility
    morning  → weather + pollen + commute + calendar
    day      → weather + pollen + commute + next calendar event

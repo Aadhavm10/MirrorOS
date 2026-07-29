@@ -118,6 +118,17 @@ def ask_assistant(text):
     res.raise_for_status()
     return res.json()["reply"]
 
+def report(state, text=""):
+    """Tell the mirror display what we're doing (best-effort; never fatal)."""
+    import requests
+    try:
+        requests.post(
+            f"{CFG['mirror_url']}/api/voice/state",
+            json={"state": state, "text": text}, timeout=2,
+        )
+    except Exception:
+        pass
+
 # --- Audio capture -----------------------------------------------------------
 
 def record_command(audio_q, vad):
@@ -188,10 +199,12 @@ def main_loop(echo=False, once=False):
             drain(audio_q)
             chirp()
             drain(audio_q)  # don't transcribe the chirp echo
+            report("listening")
 
             wav = record_command(audio_q, vad)
             if wav is None:
                 print("[voice] heard nothing, going back to sleep", flush=True)
+                report("idle")
                 continue
             try:
                 text = transcribe(wav)
@@ -199,10 +212,13 @@ def main_loop(echo=False, once=False):
                 os.unlink(wav)
             if not text:
                 print("[voice] empty transcript", flush=True)
+                report("idle")
                 continue
             print(f'[voice] heard: "{text}"', flush=True)
+            report("thinking", text)
 
             if echo:
+                report("speaking", text)
                 speak(text)
             else:
                 try:
@@ -211,7 +227,9 @@ def main_loop(echo=False, once=False):
                     print(f"[voice] assistant error: {err}", flush=True)
                     reply = "Sorry, something went wrong."
                 print(f'[voice] reply: "{reply}"', flush=True)
+                report("speaking", reply)
                 speak(reply)
+            report("idle")
 
             drain(audio_q)
             if once:
@@ -242,6 +260,8 @@ def main():
         main_loop(echo=args.echo, once=args.once)
     except KeyboardInterrupt:
         print("\n[voice] bye")
+    finally:
+        report("idle")  # don't leave a stale indicator on the mirror
 
 if __name__ == "__main__":
     main()

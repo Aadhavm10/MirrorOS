@@ -153,6 +153,40 @@ async function fetchData() {
   }
 }
 
+// Voice indicator: polled fast (1s) because interactions are short-lived.
+// A state older than 20s means the daemon died mid-interaction — treat as idle.
+function renderVoice(v) {
+  const el = document.getElementById('voice-section');
+  if (!v || v.state === 'idle' || Date.now() - v.at > 20000) {
+    el.textContent = '';
+    return;
+  }
+  el.innerHTML = '';
+  const status = document.createElement('div');
+  status.className = 'voice-status';
+  const text = document.createElement('div');
+  text.className = 'voice-text';
+  if (v.state === 'listening') {
+    status.textContent = 'Listening…';
+  } else if (v.state === 'thinking') {
+    status.textContent = 'Thinking…';
+    text.textContent = `“${v.text}”`;
+  } else if (v.state === 'speaking') {
+    text.textContent = v.text;
+  }
+  if (status.textContent) el.appendChild(status);
+  if (text.textContent) el.appendChild(text);
+}
+
+async function fetchVoiceState() {
+  try {
+    const res = await fetch('/api/voice/state');
+    renderVoice(await res.json());
+  } catch {
+    // server briefly unreachable — leave the indicator as-is
+  }
+}
+
 // Dev mode: add ?dev to URL to scale down to laptop screen
 if (new URLSearchParams(location.search).has('dev')) {
   document.body.classList.add('dev-mode');
@@ -163,3 +197,6 @@ setInterval(updateClock, 1000);
 
 fetchData();
 setInterval(fetchData, 60 * 1000);
+
+fetchVoiceState();
+setInterval(fetchVoiceState, 1000);

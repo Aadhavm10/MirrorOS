@@ -84,6 +84,22 @@ app.post('/api/calendar/event', async (req, res) => {
   }
 });
 
+// Voice indicator state: reported by the voice daemon, polled by the frontend
+let voiceState = { state: 'idle', text: '', at: 0 };
+
+app.post('/api/voice/state', (req, res) => {
+  const { state, text } = req.body || {};
+  if (!['idle', 'listening', 'thinking', 'speaking'].includes(state)) {
+    return res.status(400).json({ error: 'state must be idle|listening|thinking|speaking' });
+  }
+  voiceState = { state, text: String(text || '').slice(0, 300), at: Date.now() };
+  res.json({ ok: true });
+});
+
+app.get('/api/voice/state', (req, res) => {
+  res.json(voiceState);
+});
+
 // Spotify OAuth: visit /spotify/login once in a browser to connect the account
 const spotify = require('./spotify');
 let spotifyAuthState = null;

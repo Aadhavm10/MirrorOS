@@ -41,6 +41,9 @@ Tools: `get_mirror_data` (cache + config), `create_event` (CalDAV write), `spoti
 `spotify_now_playing` (`server/spotify.js`, OAuth via `/spotify/login`, Premium required,
 see docs/spotify-setup.md), and server-side web search.
 `POST /api/assistant {text}` → `{reply}` — spoken-style prose for TTS. Needs `ANTHROPIC_API_KEY` in `.env`.
+Voice indicator: daemon POSTs `/api/voice/state {state, text}` (idle|listening|thinking|speaking);
+frontend polls it every 1s and renders `#voice-section`. State older than 20s is treated as idle,
+so a crashed daemon can't leave text stuck on the glass.
 Short in-memory conversation history (5-min TTL). The voice pipeline (wake word/STT/TTS in `voice/`)
 is a separate client of this endpoint — keep the brain and the audio layer decoupled.
 
