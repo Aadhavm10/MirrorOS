@@ -1,47 +1,85 @@
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'];
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-function pad(n) {
-  return String(n).padStart(2, '0');
+function pad(n) { return String(n).padStart(2, '0'); }
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// --- Dev previews -----------------------------------------------------------
+const params = new URLSearchParams(location.search);
+if (params.has('dev')) document.body.classList.add('dev-mode');
+if (params.has('no-motion')) document.body.classList.add('no-motion');
+const forcedLayout = params.get('layout');   // full | sleek
+const forcedVoice = params.get('voice');      // listening | thinking | speaking
+const forcedSleep = params.has('sleep');
+
+// --- Settings (from /api/data) ---------------------------------------------
+let settings = {
+  timezone: undefined,
+  display: {
+    mode: 'sleek',
+    greeting: { name: '', customLine: '' },
+    sleep: { enabled: false, start: '23:00', end: '06:00' },
+  },
+};
+
+function zonedNow(tz) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz || undefined,
+    hour12: false, hour: '2-digit', minute: '2-digit',
+    weekday: 'long', month: 'long', day: 'numeric',
+  }).formatToParts(new Date());
+  const get = (t) => (parts.find((p) => p.type === t) || {}).value || '';
+  let hour = parseInt(get('hour'), 10);
+  if (hour === 24) hour = 0;
+  return {
+    hour,
+    minute: parseInt(get('minute'), 10),
+    time: `${pad(hour)}:${get('minute')}`,
+    date: `${get('weekday')}, ${get('month')} ${get('day')}`,
+  };
+}
+
+function greetingWord(hour) {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 18) return 'Good afternoon';
+  if (hour >= 18 && hour < 22) return 'Good evening';
+  return 'Good night';
+}
+
+function inSleepWindow(hour, minute, sleep) {
+  if (!sleep || !sleep.enabled) return false;
+  const cur = hour * 60 + minute;
+  const [sh, sm] = sleep.start.split(':').map(Number);
+  const [eh, em] = sleep.end.split(':').map(Number);
+  const s = sh * 60 + sm, e = eh * 60 + em;
+  if (s === e) return false;
+  return s < e ? (cur >= s && cur < e) : (cur >= s || cur < e);
+}
+
+function applyLayout() {
+  const mode = (forcedLayout || settings.display.mode) === 'full' ? 'full' : 'sleek';
+  document.body.classList.toggle('layout-full', mode === 'full');
+  document.body.classList.toggle('layout-sleek', mode !== 'full');
 }
 
 function updateClock() {
-  const now = new Date();
-  const h = pad(now.getHours());
-  const m = pad(now.getMinutes());
-  document.getElementById('clock').textContent = `${h}:${m}`;
-  document.getElementById('date').textContent =
-    `${DAYS[now.getDay()]}, ${MONTHS[now.getMonth()]} ${now.getDate()}`;
+  const z = zonedNow(settings.timezone);
+  document.getElementById('clock').textContent = z.time;
+  document.getElementById('date').textContent = z.date;
 
-  updateMode(now.getHours());
+  const g = settings.display.greeting || {};
+  const word = greetingWord(z.hour);
+  document.getElementById('greeting-line1').textContent = g.name ? `${word}, ${g.name}` : word;
+  document.getElementById('greeting-line2').textContent = g.customLine || '';
+
+  const sleeping = forcedSleep || inSleepWindow(z.hour, z.minute, settings.display.sleep);
+  document.body.classList.toggle('sleeping', sleeping);
 }
 
-let currentMode = null;
-let lastData = null;
-
-// Dev: force a mode with ?mode=morning|day|evening|night to preview layouts
-const FORCED_MODE = new URLSearchParams(location.search).get('mode');
-
-function updateMode(hour) {
-  let mode;
-  if (FORCED_MODE)                  mode = FORCED_MODE;
-  else if (hour >= 5 && hour < 10)  mode = 'morning';
-  else if (hour >= 10 && hour < 18) mode = 'day';
-  else if (hour >= 18 && hour < 23) mode = 'evening';
-  else                               mode = 'night';
-
-  if (mode === currentMode) return;
-  currentMode = mode;
-
-  const body = document.body;
-  body.classList.remove('mode-morning', 'mode-day', 'mode-evening', 'mode-night');
-  body.classList.add(`mode-${mode}`);
-
-  // Re-filter calendar for the new mode without waiting for the next poll
-  if (lastData) renderCalendar(lastData.calendar);
-}
-
+// --- Weather / pollen / commute --------------------------------------------
 function renderWeather(w) {
   if (!w) return;
   document.getElementById('weather-temp').textContent = `${w.temp}°`;
@@ -49,154 +87,156 @@ function renderWeather(w) {
   document.getElementById('weather-city').textContent = w.city || '';
   document.getElementById('weather-high-low').textContent = `H: ${w.high}°  L: ${w.low}°`;
   document.getElementById('weather-rain').textContent = `Rain: ${w.rainChance}%`;
+  renderWeek(w.week);
+}
 
-  const weekEl = document.getElementById('weather-week');
-  weekEl.innerHTML = (w.week || []).map(d => `
-    <div class="week-day">
-      <div class="week-day-name">${d.day}</div>
-      <div class="week-day-temps">${d.high}° <span>${d.low}°</span></div>
-    </div>
-  `).join('');
+function renderWeek(week) {
+  const el = document.getElementById('week-section');
+  if (!week || !week.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="rail-heading">WEEK</div><div id="weather-week">' +
+    week.map((d) => `
+      <div class="week-day">
+        <div class="week-day-name">${d.day}</div>
+        <div class="week-day-temps">${d.high}° <span>${d.low}°</span></div>
+      </div>`).join('') + '</div>';
 }
 
 function renderPollen(pollen) {
   const el = document.getElementById('weather-pollen');
-  if (!pollen || pollen.length === 0) { el.textContent = ''; return; } // no data yet
-  const active = pollen.filter(p => p.value > 0);
+  if (!pollen || pollen.length === 0) { el.textContent = ''; return; }
+  const active = pollen.filter((p) => p.value > 0);
   el.textContent = 'Pollen: ' + (active.length
-    ? active.map(p => `${p.name} ${p.category}`).join(' · ')
+    ? active.map((p) => `${p.name} ${p.category}`).join(' · ')
     : 'None');
 }
 
 function renderCommute(c) {
-  const section = document.getElementById('commute-section');
-  if (!c) { section.innerHTML = ''; return; }
-  section.innerHTML = `
+  const el = document.getElementById('commute-section');
+  if (!c) { el.innerHTML = ''; return; }
+  el.innerHTML = `
     <div class="commute-line">
-      <span class="commute-label">${c.label}</span>
+      <span class="commute-label">${esc(c.label)}</span>
       <span class="commute-now">${c.nowMinutes} min now</span>
       <span class="commute-depart">${c.departMinutes} min at ${c.departTime}</span>
-    </div>
-  `;
+    </div>`;
 }
 
-function formatEventTime(startISO, isAllDay) {
+// --- Calendar ---------------------------------------------------------------
+function fmtClock12(d) {
+  const h = d.getHours();
+  return `${h % 12 || 12}:${pad(d.getMinutes())} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
+function fmtEventLabel(startISO, isAllDay) {
   const d = new Date(startISO);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today.getTime() + 86400000);
-  const eventDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
-  let dayLabel;
-  if (eventDay.getTime() === today.getTime())         dayLabel = 'Today';
-  else if (eventDay.getTime() === tomorrow.getTime()) dayLabel = 'Tomorrow';
-  else                                                dayLabel = DAYS[d.getDay()].slice(0, 3);
-
-  if (isAllDay) return `${dayLabel} · All day`;
-
-  const h = d.getHours();
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h % 12 || 12;
-  return `${dayLabel} · ${hour}:${pad(d.getMinutes())} ${ampm}`;
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  let label;
+  if (day.getTime() === today.getTime()) label = 'Today';
+  else if (day.getTime() === tomorrow.getTime()) label = 'Tomorrow';
+  else label = DAYS[d.getDay()];
+  return isAllDay ? `${label} · All day` : `${label} · ${fmtClock12(d)}`;
 }
 
-// Which events each mode cares about:
-//   morning — today's events (spec: weather + today's events prominent)
-//   day     — the single next event
-//   evening — tomorrow's first event (so I know when to set an alarm)
-//   night   — none (section is hidden by CSS anyway)
-function eventsForMode(events, mode) {
+function todaysFirst(events) {
   const now = new Date();
-  const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const endOfTomorrow = new Date(startOfTomorrow.getTime() + 86400000);
-
-  switch (mode) {
-    case 'morning':
-      return events.filter(e => new Date(e.startISO) < startOfTomorrow).slice(0, 3);
-    case 'day':
-      return events.slice(0, 1);
-    case 'evening':
-      return events
-        .filter(e => {
-          const d = new Date(e.startISO);
-          return d >= startOfTomorrow && d < endOfTomorrow;
-        })
-        .slice(0, 1);
-    default:
-      return [];
-  }
+  const y = now.getFullYear(), m = now.getMonth(), dt = now.getDate();
+  return (events || []).find((e) => {
+    const t = new Date(e.startISO);
+    return t.getFullYear() === y && t.getMonth() === m && t.getDate() === dt;
+  });
 }
 
-function renderCalendar(events) {
-  const section = document.getElementById('calendar-section');
-  events = eventsForMode(events || [], currentMode);
-  if (events.length === 0) { section.innerHTML = ''; return; }
-  section.innerHTML = events.map(e => `
-    <div class="cal-event">
-      <div class="cal-event-title">${e.title}</div>
-      <div class="cal-event-time">${formatEventTime(e.startISO, e.isAllDay)}</div>
-    </div>
-  `).join('');
+function nextUpcoming(events) {
+  const now = Date.now();
+  return (events || []).find((e) => new Date(e.startISO).getTime() >= now) || (events || [])[0];
 }
 
+function renderTodayEvent(events) {
+  const el = document.getElementById('today-event');
+  const e = todaysFirst(events);
+  el.innerHTML = e
+    ? `<div class="cal-event-title">${esc(e.title)}</div>
+       <div class="cal-event-time">Today · ${e.isAllDay ? 'All day' : fmtClock12(new Date(e.startISO))}</div>`
+    : '';
+}
+
+function renderNextEvent(events) {
+  const el = document.getElementById('next-event');
+  const e = nextUpcoming(events);
+  el.innerHTML = e
+    ? `<div class="rail-heading">NEXT</div>
+       <div class="cal-event-title">${esc(e.title)}</div>
+       <div class="cal-event-time">${fmtEventLabel(e.startISO, e.isAllDay)}</div>`
+    : '';
+}
+
+// --- News -------------------------------------------------------------------
+function renderNews(news) {
+  const el = document.getElementById('news-section');
+  if (!news || !news.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="rail-heading">NEWS</div>' +
+    news.map((n) => `<div class="news-item">${esc(n.title)}</div>`).join('');
+}
+
+// --- Data poll --------------------------------------------------------------
 async function fetchData() {
   try {
     const res = await fetch('/api/data');
     const data = await res.json();
-    lastData = data;
+    if (data.settings) {
+      settings = { ...settings, ...data.settings };
+      applyLayout();
+      updateClock();
+    }
     renderWeather(data.weather);
     renderPollen(data.pollen);
     renderCommute(data.commute);
-    renderCalendar(data.calendar);
+    renderTodayEvent(data.calendar);
+    renderNextEvent(data.calendar);
+    renderNews(data.news);
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);
   }
 }
 
-// Voice indicator: polled fast (1s) because interactions are short-lived.
-// A state older than 20s means the daemon died mid-interaction — treat as idle.
-function renderVoice(v) {
-  const el = document.getElementById('voice-section');
-  if (!v || v.state === 'idle' || Date.now() - v.at > 20000) {
-    el.textContent = '';
-    return;
-  }
-  el.innerHTML = '';
-  const status = document.createElement('div');
-  status.className = 'voice-status';
-  const text = document.createElement('div');
-  text.className = 'voice-text';
-  if (v.state === 'listening') {
-    status.textContent = 'Listening…';
-  } else if (v.state === 'thinking') {
-    status.textContent = 'Thinking…';
-    text.textContent = `“${v.text}”`;
-  } else if (v.state === 'speaking') {
-    text.textContent = v.text;
-  }
-  if (status.textContent) el.appendChild(status);
-  if (text.textContent) el.appendChild(text);
+// --- Voice orb --------------------------------------------------------------
+function setVoice(state, text) {
+  const body = document.body;
+  const orb = document.querySelector('.orb-circle');
+  const cap = document.getElementById('voice-caption');
+  if (!state || state === 'idle') { body.classList.remove('voice-active'); return; }
+  body.classList.add('voice-active');
+  orb.classList.remove('orb-listening', 'orb-thinking', 'orb-speaking');
+  orb.classList.add(`orb-${state}`);
+  if (state === 'listening') cap.textContent = 'Listening…';
+  else if (state === 'thinking') cap.textContent = text ? `“${text}”` : 'Thinking…';
+  else cap.textContent = text || '';
 }
 
 async function fetchVoiceState() {
   try {
     const res = await fetch('/api/voice/state');
-    renderVoice(await res.json());
-  } catch {
-    // server briefly unreachable — leave the indicator as-is
-  }
+    const v = await res.json();
+    if (!v || v.state === 'idle' || Date.now() - v.at > 20000) setVoice('idle');
+    else setVoice(v.state, v.text);
+  } catch { /* server briefly unreachable — leave as-is */ }
 }
 
-// Dev mode: add ?dev to URL to scale down to laptop screen
-if (new URLSearchParams(location.search).has('dev')) {
-  document.body.classList.add('dev-mode');
-}
-
+// --- Boot -------------------------------------------------------------------
+applyLayout();
 updateClock();
 setInterval(updateClock, 1000);
 
 fetchData();
 setInterval(fetchData, 60 * 1000);
 
-fetchVoiceState();
-setInterval(fetchVoiceState, 1000);
+if (forcedVoice) {
+  const sample = { listening: '', thinking: 'what’s the weather tomorrow', speaking: 'Tomorrow looks sunny with a high of 88.' };
+  setVoice(forcedVoice, sample[forcedVoice] || '');
+} else {
+  fetchVoiceState();
+  setInterval(fetchVoiceState, 1000);
+}

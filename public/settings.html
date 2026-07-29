@@ -31,6 +31,59 @@
     </section>
 
     <section class="card">
+      <h2>Display mode</h2>
+      <div class="row-between">
+        <span id="mode-label">Sleek</span>
+        <label class="toggle"><input id="display-mode" type="checkbox"><span></span></label>
+      </div>
+      <p class="hint">Off = Sleek (clock, weather, greeting). On = Full (adds news, week forecast, commute, and calendar to the mirror).</p>
+    </section>
+
+    <section class="card">
+      <h2>Greeting</h2>
+      <label for="greet-name">Name</label>
+      <input id="greet-name" type="text" placeholder="Gorgeous" autocapitalize="words">
+      <label for="greet-line">Custom line (optional)</label>
+      <input id="greet-line" type="text" placeholder="Have a beautiful day" autocapitalize="sentences">
+      <button id="greeting-save">Save greeting</button>
+    </section>
+
+    <section class="card">
+      <h2>Sleep schedule</h2>
+      <div class="row-between">
+        <span>Enabled</span>
+        <label class="toggle"><input id="sleep-enabled" type="checkbox"><span></span></label>
+      </div>
+      <div class="field-row">
+        <div>
+          <label for="sleep-start">Sleep at</label>
+          <input id="sleep-start" type="time">
+        </div>
+        <div>
+          <label for="sleep-end">Wake at</label>
+          <input id="sleep-end" type="time">
+        </div>
+      </div>
+      <button id="sleep-save">Save sleep</button>
+      <p class="hint">During sleep the mirror shows only a dim clock — it stays on and keeps listening.</p>
+    </section>
+
+    <section class="card">
+      <h2>News</h2>
+      <label for="news-mode">Source</label>
+      <select id="news-mode">
+        <option value="national">US national headlines</option>
+        <option value="local">Local to my city</option>
+        <option value="topic">Custom topic</option>
+      </select>
+      <div id="news-query-field">
+        <label for="news-query">Topic or search</label>
+        <input id="news-query" type="text" placeholder="technology" autocapitalize="none">
+      </div>
+      <button id="news-save">Save news</button>
+    </section>
+
+    <section class="card">
       <h2>Commute</h2>
       <label for="commute-origin">From</label>
       <input id="commute-origin" type="text" placeholder="Home address" autocomplete="street-address">

@@ -11,6 +11,13 @@ html, body {
   color: #ffffff;
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* Let inputs/selects shrink inside flex rows instead of forcing overflow */
+.card input,
+.card select {
+  min-width: 0;
 }
 
 main {
@@ -156,10 +163,10 @@ h1 {
 
 .field-row > div {
   flex: 1;
+  min-width: 0;
 }
 
-#commute-save,
-#event-save {
+.card button {
   width: 100%;
   min-height: 48px;
   margin-top: 18px;
@@ -171,14 +178,45 @@ h1 {
   border-radius: 12px;
 }
 
-#commute-save:active,
-#event-save:active {
+.card button:active {
   background: #cccccc;
 }
 
-#commute-save:disabled,
-#event-save:disabled {
+.card button:disabled {
   opacity: 0.5;
+}
+
+.card select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  font-size: 16px;
+  color: #ffffff;
+  background: #1f1f1f;
+  border: 1px solid #333;
+  border-radius: 12px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#mode-label {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hint {
+  color: #777;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 12px;
 }
 
 #city-results {

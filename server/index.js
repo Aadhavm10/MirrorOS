@@ -13,7 +13,11 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(express.json());
 
 app.get('/api/data', (req, res) => {
-  res.json(cache.getAll());
+  const { weather, display } = config.get();
+  res.json({
+    ...cache.getAll(),
+    settings: { timezone: weather.timezone, display },
+  });
 });
 
 // Phone settings page (add to home screen on iOS for an app-like feel)
@@ -46,6 +50,7 @@ app.get('/api/geocode', async (req, res) => {
       country: c.country_code || '',
       latitude: c.latitude,
       longitude: c.longitude,
+      timezone: c.timezone || '',
     })));
   } catch (err) {
     console.error('[geocode] failed:', err.message);
@@ -152,6 +157,7 @@ const sources = [
   require('./sources/calendar'),
   require('./sources/commute'),
   require('./sources/pollen'),
+  require('./sources/news'),
 ];
 
 startPolling(sources);

@@ -3,14 +3,14 @@ const config = require('../config');
 const BASE = 'https://api.open-meteo.com/v1/forecast';
 
 function buildParams() {
-  const { latitude, longitude } = config.get().weather;
+  const { latitude, longitude, timezone } = config.get().weather;
   return [
     `latitude=${latitude}`,
     `longitude=${longitude}`,
     'current=temperature_2m,weathercode,precipitation_probability',
     'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max',
     'temperature_unit=fahrenheit',
-    `timezone=${encodeURIComponent(process.env.TZ || 'America/Chicago')}`,
+    `timezone=${encodeURIComponent(timezone || process.env.TZ || 'America/Chicago')}`,
     'forecast_days=8', // today + the next 7 for the week row
   ].join('&');
 }

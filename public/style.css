@@ -18,23 +18,39 @@ html, body {
 }
 
 #mirror {
+  position: relative;
   width: 1080px;
   height: 1920px;
   overflow: hidden;
 }
 
-#top-third {
-  /* Content column matches the lululemon Mirror body: 22.4" × 52.7"
-     → 816px wide at 1920 tall, centered; panel edges stay pure black */
-  width: 816px;
-  margin: 0 auto;
-  height: 960px; /* top half of the panel; grew from 672 when week row + pollen + commute landed */
-  padding: 40px 48px;
+/* Dev mode: scale the 1080x1920 canvas to fit a laptop screen */
+body.dev-mode #mirror {
+  transform: scale(0.45);
+  transform-origin: top left;
+}
+
+/* ---- Top cluster: left group + right rail ---- */
+#top-cluster {
+  display: flex;
+  gap: 40px;
+  padding: 48px 56px 0;
+}
+
+#left-group {
   display: flex;
   flex-direction: column;
   gap: 28px;
-  /* Hard guarantee: nothing ever renders below the content zone into the mirror zone */
-  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
+#right-rail {
+  width: 360px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
 }
 
 /* Clock */
@@ -50,12 +66,6 @@ html, body {
   font-weight: 500;
   color: #d0d0d0;
   margin-top: 12px;
-}
-
-/* Dev mode: scale the 1080x1920 canvas to fit a laptop screen */
-body.dev-mode #mirror {
-  transform: scale(0.45);
-  transform-origin: top left;
 }
 
 /* Weather */
@@ -85,43 +95,14 @@ body.dev-mode #mirror {
 
 #weather-secondary {
   display: flex;
+  flex-wrap: wrap;
   gap: 36px;
   font-size: 30px;
   font-weight: 500;
   color: #b0b0b0;
 }
 
-#weather-city {
-  color: #d0d0d0;
-}
-
-/* Next 7 days, one column per day */
-#weather-week {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-.week-day {
-  text-align: center;
-}
-
-.week-day-name {
-  font-size: 24px;
-  font-weight: 500;
-  color: #b0b0b0;
-}
-
-.week-day-temps {
-  font-size: 26px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.week-day-temps span {
-  font-weight: 500;
-  color: #808080;
-}
+#weather-city { color: #d0d0d0; }
 
 #weather-pollen {
   font-size: 28px;
@@ -129,94 +110,139 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
-/* Commute (morning only) */
+/* Commute + today's event (full mode, left group) */
 .commute-line {
   display: flex;
   align-items: baseline;
   gap: 28px;
   font-weight: 500;
 }
+.commute-label { font-size: 34px; color: #ffffff; }
+.commute-now { font-size: 34px; color: #ffffff; }
+.commute-depart { font-size: 28px; color: #b0b0b0; }
 
-.commute-label {
-  font-size: 34px;
-  color: #ffffff;
+#today-event .cal-event-title { font-size: 34px; font-weight: 500; }
+#today-event .cal-event-time { font-size: 26px; font-weight: 500; color: #b0b0b0; margin-top: 4px; }
+
+/* ---- Right rail sections ---- */
+.rail-heading {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: #808080;
+  margin-bottom: 14px;
 }
 
-.commute-now {
-  font-size: 34px;
-  color: #ffffff;
-}
-
-.commute-depart {
-  font-size: 28px;
-  color: #b0b0b0;
-}
-
-/* Calendar */
-#calendar-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.cal-event {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cal-event-title {
-  font-size: 36px;
-  font-weight: 500;
-}
-
-.cal-event-time {
+.news-item {
   font-size: 28px;
   font-weight: 500;
-  color: #b0b0b0;
+  line-height: 1.25;
+  color: #e0e0e0;
+  margin-bottom: 18px;
 }
 
-/* Voice assistant indicator — transient, shows in every mode (even night:
-   if she's talking to the mirror, she should see it responding) */
-#voice-section {
-  margin-top: auto; /* pin to the bottom of the content zone */
+/* Week forecast — one column per day */
+#weather-week { display: flex; justify-content: space-between; }
+.week-day { text-align: center; }
+.week-day-name { font-size: 22px; font-weight: 500; color: #b0b0b0; }
+.week-day-temps { font-size: 24px; font-weight: 600; color: #ffffff; }
+.week-day-temps span { font-weight: 500; color: #808080; }
+
+#next-event .cal-event-title { font-size: 30px; font-weight: 500; }
+#next-event .cal-event-time { font-size: 26px; font-weight: 500; color: #b0b0b0; margin-top: 4px; }
+
+/* ---- Center stage: greeting / voice orb ---- */
+#center-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
 }
 
-.voice-status {
-  font-size: 30px;
+#greeting-line1 {
+  font-size: 76px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+#greeting-line2 {
+  font-size: 40px;
   font-weight: 500;
   color: #d0d0d0;
+  margin-top: 16px;
 }
 
-.voice-text {
+/* Voice orb */
+#voice-orb {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+}
+
+.orb-circle {
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 45%, #ffffff 0%, #d8d8d8 45%, #6a6a6a 100%);
+  box-shadow: 0 0 60px 12px rgba(255, 255, 255, 0.35);
+}
+
+/* State steps (size/brightness) */
+.orb-circle.orb-listening { width: 200px; height: 200px; opacity: 0.9; }
+.orb-circle.orb-thinking  { width: 220px; height: 220px; opacity: 0.75; }
+.orb-circle.orb-speaking  { width: 260px; height: 260px; opacity: 1; }
+
+#voice-caption {
   font-size: 34px;
   font-weight: 500;
   color: #ffffff;
-  margin-top: 6px;
+  max-width: 760px;
 }
 
-/* Time-of-day visibility
-   morning  → weather + pollen + commute + calendar
-   day      → weather + pollen + commute + next calendar event
-   evening  → weather + pollen + commute + calendar (tomorrow's first event)
-   night    → dim clock only
-*/
-body.mode-night #weather-section {
+/* Breathing pulse — overrides the universal `animation:none` via higher
+   specificity + !important. Disable instantly with body.no-motion. */
+body.voice-active:not(.no-motion) .orb-circle {
+  animation: orb-breathe 2.6s ease-in-out infinite !important;
+}
+
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.1); }
+}
+
+/* ============================================================
+   State-driven visibility. Order matters: layout → sleep → voice.
+   ============================================================ */
+
+/* Default (sleek): hide the rail + full-only left items */
+#right-rail,
+#commute-section,
+#today-event {
   display: none;
 }
 
-body.mode-night #calendar-section {
+/* Full mode reveals them */
+body.layout-full #right-rail { display: flex; }
+body.layout-full #commute-section { display: block; }
+body.layout-full #today-event { display: block; }
+
+/* Sleep: only a dimmed clock; everything else hidden (wins over layout) */
+body.sleeping #weather-section,
+body.sleeping #commute-section,
+body.sleeping #today-event,
+body.sleeping #right-rail,
+body.sleeping #date,
+body.sleeping #greeting {
   display: none;
 }
+body.sleeping #clock { opacity: 0.3; }
 
-body.mode-night #commute-section {
-  display: none;
-}
-
-/* Night mode: dim the clock */
-body.mode-night #clock {
-  opacity: 0.35;
-}
-body.mode-night #date {
-  opacity: 0.35;
-}
+/* Voice: orb replaces greeting; shows even during sleep (wins over sleep) */
+#voice-orb { display: none; }
+body.voice-active #greeting { display: none; }
+body.voice-active #voice-orb { display: flex; }

@@ -10,6 +10,25 @@ async function loadConfig() {
   document.getElementById('commute-destination').value = cfg.commute.destination;
   document.getElementById('commute-depart').value = cfg.commute.depart;
   document.getElementById('commute-label').value = cfg.commute.label;
+
+  // Display mode
+  const isFull = cfg.display.mode === 'full';
+  document.getElementById('display-mode').checked = isFull;
+  document.getElementById('mode-label').textContent = isFull ? 'Full' : 'Sleek';
+
+  // Greeting
+  document.getElementById('greet-name').value = cfg.display.greeting.name || '';
+  document.getElementById('greet-line').value = cfg.display.greeting.customLine || '';
+
+  // Sleep
+  document.getElementById('sleep-enabled').checked = cfg.display.sleep.enabled;
+  document.getElementById('sleep-start').value = cfg.display.sleep.start;
+  document.getElementById('sleep-end').value = cfg.display.sleep.end;
+
+  // News
+  document.getElementById('news-mode').value = cfg.news.mode;
+  document.getElementById('news-query').value = cfg.news.query || '';
+  updateNewsQueryVisibility();
 }
 
 function showToast(message, isError = false) {
@@ -68,7 +87,12 @@ async function saveCity(label, city) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        weather: { city: label, latitude: city.latitude, longitude: city.longitude },
+        weather: {
+          city: label,
+          latitude: city.latitude,
+          longitude: city.longitude,
+          timezone: city.timezone || '',
+        },
       }),
     });
     if (!res.ok) throw new Error('save failed');
@@ -152,5 +176,83 @@ document.getElementById('event-save').addEventListener('click', async () => {
     btn.disabled = false;
   }
 });
+
+// --- Display mode toggle (saves immediately) ---
+document.getElementById('display-mode').addEventListener('change', async (e) => {
+  const mode = e.target.checked ? 'full' : 'sleek';
+  document.getElementById('mode-label').textContent = e.target.checked ? 'Full' : 'Sleek';
+  try {
+    const res = await postConfig({ display: { mode } });
+    if (!res.ok) throw new Error();
+    showToast(`Mirror set to ${mode} mode ✓`);
+  } catch {
+    showToast('Could not save — try again.', true);
+  }
+});
+
+// --- Greeting ---
+document.getElementById('greeting-save').addEventListener('click', () =>
+  saveSection('greeting-save', {
+    display: {
+      greeting: {
+        name: document.getElementById('greet-name').value,
+        customLine: document.getElementById('greet-line').value,
+      },
+    },
+  }, 'Greeting saved ✓')
+);
+
+// --- Sleep ---
+document.getElementById('sleep-save').addEventListener('click', () =>
+  saveSection('sleep-save', {
+    display: {
+      sleep: {
+        enabled: document.getElementById('sleep-enabled').checked,
+        start: document.getElementById('sleep-start').value,
+        end: document.getElementById('sleep-end').value,
+      },
+    },
+  }, 'Sleep schedule saved ✓')
+);
+
+// --- News ---
+function updateNewsQueryVisibility() {
+  const mode = document.getElementById('news-mode').value;
+  document.getElementById('news-query-field').style.display = mode === 'topic' ? 'block' : 'none';
+}
+document.getElementById('news-mode').addEventListener('change', updateNewsQueryVisibility);
+
+document.getElementById('news-save').addEventListener('click', () =>
+  saveSection('news-save', {
+    news: {
+      mode: document.getElementById('news-mode').value,
+      query: document.getElementById('news-query').value,
+    },
+  }, 'News source saved ✓')
+);
+
+// Shared helpers
+function postConfig(body) {
+  return fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+async function saveSection(btnId, body, successMsg) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = true;
+  try {
+    const res = await postConfig(body);
+    if (!res.ok) throw new Error();
+    await loadConfig();
+    showToast(successMsg);
+  } catch {
+    showToast('Could not save — try again.', true);
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 loadConfig().catch(() => showToast('Could not reach the mirror.', true));
