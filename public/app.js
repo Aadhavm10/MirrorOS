@@ -50,6 +50,18 @@ function renderWeather(w) {
   document.getElementById('weather-rain').textContent = `Rain: ${w.rainChance}%`;
 }
 
+function renderCommute(c) {
+  const section = document.getElementById('commute-section');
+  if (!c) { section.innerHTML = ''; return; }
+  section.innerHTML = `
+    <div class="commute-line">
+      <span class="commute-label">${c.label}</span>
+      <span class="commute-now">${c.nowMinutes} min now</span>
+      <span class="commute-depart">${c.departMinutes} min at ${c.departTime}</span>
+    </div>
+  `;
+}
+
 function formatEventTime(startISO, isAllDay) {
   const d = new Date(startISO);
   const now = new Date();
@@ -115,6 +127,7 @@ async function fetchData() {
     const data = await res.json();
     lastData = data;
     renderWeather(data.weather);
+    renderCommute(data.commute);
     renderCalendar(data.calendar);
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);

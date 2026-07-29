@@ -23,6 +23,16 @@ On error: logs to console, leaves last good value in cache. Never crashes the se
 Single endpoint: `GET /api/data` → returns all cached data as `{ weather: {...}, calendar: [...], ... }`
 API keys live in `.env`, never reach the browser.
 
+### Config (phone-editable settings)
+`server/config.js` persists preferences to `server/config.json` (gitignored).
+Secrets stay in `.env`; config.json is only for harmless preferences (weather city, future commute origin, etc.).
+- `GET /api/config` / `POST /api/config` — read/update; POST triggers an immediate re-fetch of all sources
+- `GET /api/geocode?q=City` — Open-Meteo geocoding proxy for the settings page
+- `/settings` — phone-friendly settings page (`public/settings.{html,css,js}`).
+  Normal UI rules apply there, NOT the mirror display rules. iOS "Add to Home Screen" makes it app-like
+  (`public/manifest.json` + `public/icons/`).
+New phone-editable preferences should be added as fields in `server/config.js` defaults + validation, then a card on the settings page.
+
 ### Frontend
 - Clock ticks every 1s via `setInterval` + `new Date()` (no server needed)
 - `/api/data` polled every 60s, results rendered by widget-specific functions in `public/app.js`

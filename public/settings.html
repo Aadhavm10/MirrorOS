@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>MirrorOS Settings</title>
+  <meta name="theme-color" content="#000000">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="MirrorOS">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main>
+    <h1>MirrorOS</h1>
+    <p class="subtitle">Settings</p>
+
+    <section class="card">
+      <h2>Weather location</h2>
+      <p class="current">Currently: <span id="current-city">…</span></p>
+      <input
+        id="city-search"
+        type="search"
+        placeholder="Search for a city…"
+        autocomplete="off"
+        autocapitalize="words"
+      >
+      <div id="city-results"></div>
+    </section>
+
+    <p id="toast" hidden></p>
+
+    <p class="tip">
+      Tip: in Safari, tap Share → “Add to Home Screen” to open this page like an app.
+    </p>
+  </main>
+  <script src="settings.js" defer></script>
+</body>
+</html>

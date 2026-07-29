@@ -9,11 +9,19 @@ async function runSource(source) {
   }
 }
 
+let registered = [];
+
 function startPolling(sources) {
+  registered = sources;
   for (const source of sources) {
     runSource(source);
     setInterval(() => runSource(source), source.intervalMs);
   }
 }
 
-module.exports = { startPolling };
+// Re-fetch every source immediately (used after a settings change).
+async function refreshAll() {
+  await Promise.all(registered.map(runSource));
+}
+
+module.exports = { startPolling, refreshAll };

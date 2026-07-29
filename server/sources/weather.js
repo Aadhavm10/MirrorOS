@@ -1,9 +1,12 @@
+const config = require('../config');
+
 const BASE = 'https://api.open-meteo.com/v1/forecast';
 
 function buildParams() {
+  const { latitude, longitude } = config.get().weather;
   return [
-    `latitude=${process.env.WEATHER_LAT || '32.9483'}`,
-    `longitude=${process.env.WEATHER_LON || '-96.7299'}`,
+    `latitude=${latitude}`,
+    `longitude=${longitude}`,
     'current=temperature_2m,weathercode,precipitation_probability',
     'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max',
     'temperature_unit=fahrenheit',

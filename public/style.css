@@ -87,6 +87,29 @@ body.dev-mode #mirror {
   color: #b0b0b0;
 }
 
+/* Commute (morning only) */
+.commute-line {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  font-weight: 500;
+}
+
+.commute-label {
+  font-size: 34px;
+  color: #ffffff;
+}
+
+.commute-now {
+  font-size: 34px;
+  color: #ffffff;
+}
+
+.commute-depart {
+  font-size: 28px;
+  color: #b0b0b0;
+}
+
 /* Calendar */
 #calendar-section {
   display: flex;
@@ -124,6 +147,13 @@ body.mode-night #weather-section {
 }
 
 body.mode-night #calendar-section {
+  display: none;
+}
+
+/* Commute only matters in the morning */
+body.mode-day #commute-section,
+body.mode-evening #commute-section,
+body.mode-night #commute-section {
   display: none;
 }
 
