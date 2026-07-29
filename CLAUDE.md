@@ -37,7 +37,9 @@ New phone-editable preferences should be added as fields in `server/config.js` d
 
 ### Assistant (voice brain)
 `server/assistant.js` — Claude Haiku 4.5 (`claude-haiku-4-5`) via `@anthropic-ai/sdk` tool runner.
-Tools: `get_mirror_data` (cache + config), `create_event` (CalDAV write), server-side web search.
+Tools: `get_mirror_data` (cache + config), `create_event` (CalDAV write), `spotify_control` /
+`spotify_now_playing` (`server/spotify.js`, OAuth via `/spotify/login`, Premium required,
+see docs/spotify-setup.md), and server-side web search.
 `POST /api/assistant {text}` → `{reply}` — spoken-style prose for TTS. Needs `ANTHROPIC_API_KEY` in `.env`.
 Short in-memory conversation history (5-min TTL). The voice pipeline (wake word/STT/TTS in `voice/`)
 is a separate client of this endpoint — keep the brain and the audio layer decoupled.

@@ -5,3 +5,4 @@ server/config.json
 voice/.venv/
 voice/models/
 voice/voice.env
+server/spotify-tokens.json

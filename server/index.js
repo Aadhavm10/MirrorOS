@@ -84,6 +84,34 @@ app.post('/api/calendar/event', async (req, res) => {
   }
 });
 
+// Spotify OAuth: visit /spotify/login once in a browser to connect the account
+const spotify = require('./spotify');
+let spotifyAuthState = null;
+
+app.get('/spotify/login', (req, res) => {
+  if (!spotify.creds()) {
+    return res
+      .status(503)
+      .send('Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in .env first (see docs/spotify-setup.md).');
+  }
+  spotifyAuthState = require('crypto').randomBytes(16).toString('hex');
+  res.redirect(spotify.authUrl(spotifyAuthState));
+});
+
+app.get('/spotify/callback', async (req, res) => {
+  if (!req.query.code || req.query.state !== spotifyAuthState) {
+    return res.status(400).send('Spotify authorization failed — try /spotify/login again.');
+  }
+  spotifyAuthState = null;
+  try {
+    await spotify.exchangeCode(String(req.query.code));
+    res.send('Spotify connected ✓ — you can close this tab and talk to the mirror.');
+  } catch (err) {
+    console.error('[spotify] token exchange failed:', err.message);
+    res.status(502).send('Spotify token exchange failed — check the server log.');
+  }
+});
+
 // Voice assistant brain (text in → spoken-style text out).
 // The voice pipeline posts transcripts here; also handy for curl testing.
 app.post('/api/assistant', async (req, res) => {

@@ -8,6 +8,7 @@ const { betaTool } = require('@anthropic-ai/sdk/helpers/beta/json-schema');
 const cache = require('./cache');
 const config = require('./config');
 const calendar = require('./sources/calendar');
+const spotify = require('./spotify');
 
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 1000;
@@ -26,6 +27,7 @@ Tools:
 - get_mirror_data: current weather, week forecast, pollen, commute times, and upcoming calendar events already on the mirror. Prefer this over web search for anything it covers.
 - create_event: add an event to the user's iCloud calendar (it syncs to their iPhone). After creating, confirm briefly what was added and when. The user's timezone is ${process.env.TZ || 'America/Chicago'} — pass startISO with the correct UTC offset for that timezone.
 - web_search: for current facts, news, or anything beyond the mirror's data.
+- spotify_control / spotify_now_playing: music playback. "Play X" means search Spotify and play it. If Spotify reports no device is available, tell the user to open Spotify somewhere first.
 
 If a request is ambiguous about date or time, make the natural assumption (e.g. "Thursday" means the upcoming Thursday) rather than asking, and state the assumption in your confirmation.`;
 
@@ -58,6 +60,40 @@ const createEvent = betaTool({
   },
 });
 
+const NOT_CONNECTED =
+  "Spotify isn't connected yet — open http://127.0.0.1:3000/spotify/login in a browser to link the account.";
+
+const spotifyControl = betaTool({
+  name: 'spotify_control',
+  description:
+    'Control Spotify playback on the user\'s active device. Use action "play" with a query to search and play a track, album, playlist, or artist; "play" without a query resumes; "pause", "next", "previous", or "volume" (with volume 0-100) do what they say.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['play', 'pause', 'next', 'previous', 'volume'] },
+      query: { type: 'string', description: 'What to search for (play only)' },
+      itemType: { type: 'string', enum: ['track', 'album', 'playlist', 'artist'] },
+      volume: { type: 'integer', description: '0-100 (volume action only)' },
+    },
+    required: ['action'],
+    additionalProperties: false,
+  },
+  run: async (input) => {
+    if (!spotify.isConnected()) return NOT_CONNECTED;
+    return spotify.control(input);
+  },
+});
+
+const spotifyNowPlaying = betaTool({
+  name: 'spotify_now_playing',
+  description: 'What is currently playing on Spotify, if anything.',
+  inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+  run: async () => {
+    if (!spotify.isConnected()) return NOT_CONNECTED;
+    return spotify.nowPlaying();
+  },
+});
+
 const WEB_SEARCH = { type: 'web_search_20250305', name: 'web_search', max_uses: 3 };
 
 let history = [];
@@ -78,7 +114,7 @@ async function ask(text) {
     model: MODEL,
     max_tokens: MAX_TOKENS,
     system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
-    tools: [getMirrorData, createEvent, WEB_SEARCH],
+    tools: [getMirrorData, createEvent, spotifyControl, spotifyNowPlaying, WEB_SEARCH],
     messages: history,
     max_iterations: 8,
   });
