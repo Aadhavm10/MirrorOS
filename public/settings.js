@@ -16,12 +16,9 @@ async function loadConfig() {
   document.getElementById('display-mode').checked = isFull;
   document.getElementById('mode-label').textContent = isFull ? 'Full' : 'Sleek';
 
-  // Greeting
-  document.getElementById('greet-name').value = cfg.display.greeting.name || '';
-  document.getElementById('greet-line').value = cfg.display.greeting.customLine || '';
-
   // Sleep
   document.getElementById('sleep-enabled').checked = cfg.display.sleep.enabled;
+  document.getElementById('sleep-mode').value = cfg.display.sleep.mode || 'dim';
   document.getElementById('sleep-start').value = cfg.display.sleep.start;
   document.getElementById('sleep-end').value = cfg.display.sleep.end;
 
@@ -190,24 +187,13 @@ document.getElementById('display-mode').addEventListener('change', async (e) => 
   }
 });
 
-// --- Greeting ---
-document.getElementById('greeting-save').addEventListener('click', () =>
-  saveSection('greeting-save', {
-    display: {
-      greeting: {
-        name: document.getElementById('greet-name').value,
-        customLine: document.getElementById('greet-line').value,
-      },
-    },
-  }, 'Greeting saved ✓')
-);
-
 // --- Sleep ---
 document.getElementById('sleep-save').addEventListener('click', () =>
   saveSection('sleep-save', {
     display: {
       sleep: {
         enabled: document.getElementById('sleep-enabled').checked,
+        mode: document.getElementById('sleep-mode').value,
         start: document.getElementById('sleep-start').value,
         end: document.getElementById('sleep-end').value,
       },

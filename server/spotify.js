@@ -167,12 +167,25 @@ async function control({ action, query, itemType = 'track', volume }) {
   }
 }
 
-async function nowPlaying() {
+// Structured, for the mirror display. null when nothing is loaded.
+async function nowPlayingData() {
   const json = await api('GET', '/me/player/currently-playing');
-  if (!json || !json.item) return 'Nothing is playing right now.';
-  const artists = (json.item.artists || []).map((a) => a.name).join(', ');
-  const state = json.is_playing ? 'Now playing' : 'Paused';
-  return `${state}: ${json.item.name}${artists ? ` by ${artists}` : ''}.`;
+  if (!json || !json.item) return null;
+  return {
+    isPlaying: Boolean(json.is_playing),
+    track: json.item.name,
+    artist: (json.item.artists || []).map((a) => a.name).join(', '),
+  };
 }
 
-module.exports = { isConnected, authUrl, exchangeCode, control, nowPlaying, creds };
+// Same thing as a spoken sentence, for the assistant.
+async function nowPlaying() {
+  const t = await nowPlayingData();
+  if (!t) return 'Nothing is playing right now.';
+  const state = t.isPlaying ? 'Now playing' : 'Paused';
+  return `${state}: ${t.track}${t.artist ? ` by ${t.artist}` : ''}.`;
+}
+
+module.exports = {
+  isConnected, authUrl, exchangeCode, control, nowPlaying, nowPlayingData, creds,
+};

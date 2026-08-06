@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000` (size browser to 1080×1920), or `http://localhost:3000?dev` for a scaled-down view on a laptop screen.
+Open `http://localhost:3000` (size browser to 1920×1080), or `http://localhost:3000?dev` for a scaled-down view on a laptop screen.
 
 ## Deploy (Linux)
 

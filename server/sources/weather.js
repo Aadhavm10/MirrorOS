@@ -8,7 +8,7 @@ function buildParams() {
     `latitude=${latitude}`,
     `longitude=${longitude}`,
     'current=temperature_2m,weathercode,precipitation_probability',
-    'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max',
+    'daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode',
     'temperature_unit=fahrenheit',
     `timezone=${encodeURIComponent(timezone || process.env.TZ || 'America/Chicago')}`,
     'forecast_days=8', // today + the next 7 for the week row
@@ -29,6 +29,24 @@ const WMO = {
   95: 'Thunderstorm', 96: 'Thunderstorm', 99: 'Thunderstorm',
 };
 
+// Same WMO codes, collapsed to the handful of icons the frontend draws.
+// Anything unmapped falls back to 'cloud'.
+const WMO_ICON = {
+  0: 'sun',
+  1: 'sun', 2: 'partly-cloudy', 3: 'cloud',
+  45: 'fog', 48: 'fog',
+  51: 'rain', 53: 'rain', 55: 'rain',
+  61: 'rain', 63: 'rain', 65: 'rain',
+  71: 'snow', 73: 'snow', 75: 'snow', 77: 'snow',
+  80: 'rain', 81: 'rain', 82: 'rain',
+  85: 'snow', 86: 'snow',
+  95: 'thunder', 96: 'thunder', 99: 'thunder',
+};
+
+function iconFor(code) {
+  return WMO_ICON[code] || 'cloud';
+}
+
 module.exports = {
   key: 'weather',
   intervalMs: 5 * 60 * 1000,
@@ -41,6 +59,7 @@ module.exports = {
       day: DAY_ABBREV[new Date(`${date}T12:00:00`).getDay()],
       high: Math.round(json.daily.temperature_2m_max[i + 1]),
       low: Math.round(json.daily.temperature_2m_min[i + 1]),
+      icon: iconFor(json.daily.weathercode[i + 1]),
     }));
     return {
       city: config.get().weather.city,
@@ -48,6 +67,7 @@ module.exports = {
       high: Math.round(json.daily.temperature_2m_max[0]),
       low: Math.round(json.daily.temperature_2m_min[0]),
       condition: WMO[json.current.weathercode] ?? 'Unknown',
+      icon: iconFor(json.current.weathercode),
       rainChance: json.daily.precipitation_probability_max[0],
       week,
     };

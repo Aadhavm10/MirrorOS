@@ -1,3 +1,20 @@
+/* ============================================================
+   Mounting geometry — the one derived number everything hangs off.
+
+   Mirror   : 43" 16:9 portrait  → 21.081 in wide
+   Monitor  : 15.6" 16:9         → 13.597 in wide, 1920x1080 → 141.21 px/in
+   Mounting : flush into the mirror's TOP-RIGHT corner
+
+   Monitor's left edge sits 21.081 - 13.597 = 7.485 in from the mirror's left.
+   The mirror's centre line is at 21.081 / 2 = 10.541 in, i.e. 3.056 in to the
+   right of the monitor's left edge → 3.056 x 141.21 = 431.5 px.
+
+   RECOMPUTE THIS if the mirror size or the monitor's mounting position changes.
+   ============================================================ */
+:root {
+  --mirror-center-x: 432px;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -17,78 +34,124 @@ html, body {
   height: 100%;
 }
 
+#mirror-context { display: contents; }
+
 #mirror {
   position: relative;
-  width: 1080px;
-  height: 1920px;
+  width: 1920px;
+  height: 1080px;
   overflow: hidden;
 }
 
-/* Dev mode: scale the 1080x1920 canvas to fit a laptop screen */
-body.dev-mode #mirror {
-  transform: scale(0.45);
-  transform-origin: top left;
-}
+.icon { display: block; }
 
-/* ---- Top cluster: left group + right rail ---- */
-#top-cluster {
-  display: flex;
-  gap: 40px;
-  padding: 48px 56px 0;
-}
-
-#left-group {
+/* ---- Clock: centred on the MIRROR's axis, not the panel's ----
+   A box starting at x=0 and twice the centre offset wide, with its text
+   centred, puts every line exactly on the mirror's centre line. */
+#clock-section {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--mirror-center-x) * 2);
   display: flex;
   flex-direction: column;
-  gap: 28px;
-  flex: 1;
-  min-width: 0;
+  justify-content: center;
+  text-align: center;
 }
 
-#right-rail {
-  width: 360px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 36px;
-}
-
-/* Clock */
+/* 300px is close to the ceiling: centred at 432, the ink is ~726px wide, so it
+   spans x=69..795. Much larger and it runs off the left edge of the panel. */
 #clock {
-  font-size: 128px;
+  font-size: 300px;
   font-weight: 600;
-  line-height: 1;
-  letter-spacing: -2px;
+  line-height: 0.9;
+  letter-spacing: -6px;
+  font-variant-numeric: tabular-nums;
+}
+
+#day {
+  font-size: 64px;
+  font-weight: 500;
+  margin-top: 24px;
 }
 
 #date {
-  font-size: 38px;
+  font-size: 52px;
   font-weight: 500;
   color: #d0d0d0;
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
-/* Weather */
-#weather-section {
+/* ---- Info column ----
+   x = 1280..1880, matching the mockup's left edge with a bezel margin. */
+#info-column {
+  position: absolute;
+  right: 40px;
+  top: 40px;
+  bottom: 40px;
+  width: 600px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* Tight on purpose: six sections, the week row AND the health line's
+     reserved slot have to clear the bottom edge of a 1080px panel. */
+  gap: 16px;
 }
 
+/* An empty section (no events, unconfigured source) would still hold open a
+   gap — collapse it. !important so it beats the mode rules further down.
+   Direct children only: a descendant selector also matches <path>/<circle>
+   inside the icons, which have no children and would all vanish.
+   Sections only — #health-line keeps its slot even when empty, so a stale
+   warning can never be pushed off the bottom of the panel. */
+#info-column > section:empty { display: none !important; }
+
+/* Section labels. Small and wide-tracked against the content below them — the
+   size gap is what separates label from data, since there are no rules. */
+.section-heading {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: #808080;
+  margin-bottom: 10px;
+}
+
+/* Icon sitting beside a stack of rows (commute, pollen, news) */
+.icon-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+.icon-block .icon { flex: 0 0 auto; color: #d0d0d0; margin-top: 2px; }
+.icon-block .rows { flex: 1 1 auto; min-width: 0; }
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.row span:last-child { color: #d0d0d0; font-variant-numeric: tabular-nums; }
+
+/* ---- Weather ---- */
 #weather-primary {
   display: flex;
-  align-items: baseline;
-  gap: 28px;
+  align-items: center;
+  gap: 18px;
 }
 
 #weather-temp {
-  font-size: 80px;
+  font-size: 64px;
   font-weight: 600;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 #weather-condition {
-  font-size: 40px;
+  font-size: 30px;
   font-weight: 500;
   color: #d0d0d0;
 }
@@ -96,72 +159,99 @@ body.dev-mode #mirror {
 #weather-secondary {
   display: flex;
   flex-wrap: wrap;
-  gap: 36px;
-  font-size: 30px;
+  gap: 24px;
+  margin-top: 6px;
+  font-size: 26px;
   font-weight: 500;
   color: #b0b0b0;
 }
 
 #weather-city { color: #d0d0d0; }
 
+/* Pollen rides along under the weather rather than owning a section */
 #weather-pollen {
-  font-size: 28px;
-  font-weight: 500;
-  color: #b0b0b0;
-}
-
-/* Commute + today's event (full mode, left group) */
-.commute-line {
-  display: flex;
-  align-items: baseline;
-  gap: 28px;
-  font-weight: 500;
-}
-.commute-label { font-size: 34px; color: #ffffff; }
-.commute-now { font-size: 34px; color: #ffffff; }
-.commute-depart { font-size: 28px; color: #b0b0b0; }
-
-#today-event .cal-event-title { font-size: 34px; font-weight: 500; }
-#today-event .cal-event-time { font-size: 26px; font-weight: 500; color: #b0b0b0; margin-top: 4px; }
-
-/* Stale data: dim the section rather than hide it — the value is still
-   roughly useful, it just isn't current. No color, per the display rules. */
-.stale { opacity: 0.4; }
-
-#health-line {
-  font-size: 26px;
+  margin-top: 6px;
+  font-size: 22px;
   font-weight: 500;
   color: #909090;
 }
 
-/* ---- Right rail sections ---- */
-.rail-heading {
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: 3px;
-  color: #808080;
-  margin-bottom: 14px;
-}
-
-.news-item {
-  font-size: 28px;
-  font-weight: 500;
-  line-height: 1.25;
-  color: #e0e0e0;
-  margin-bottom: 18px;
-}
-
-/* Week forecast — one column per day */
+/* Week forecast — icon over the day name, low stacked under the high */
 #weather-week { display: flex; justify-content: space-between; }
 .week-day { text-align: center; }
-.week-day-name { font-size: 22px; font-weight: 500; color: #b0b0b0; }
-.week-day-temps { font-size: 24px; font-weight: 600; color: #ffffff; }
-.week-day-temps span { font-weight: 500; color: #808080; }
+.week-day-name {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #909090;
+}
+.week-day-icon {
+  display: flex;
+  justify-content: center;
+  color: #d0d0d0;
+  margin: 3px 0 2px;
+}
+.week-day-temps {
+  font-size: 26px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+.week-day-temps span { display: block; font-size: 22px; font-weight: 500; color: #808080; }
 
-#next-event .cal-event-title { font-size: 30px; font-weight: 500; }
-#next-event .cal-event-time { font-size: 26px; font-weight: 500; color: #b0b0b0; margin-top: 4px; }
+/* ---- Calendar: a row per event ---- */
+.cal-row {
+  display: grid;
+  grid-template-columns: 42px 82px 96px 1fr;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.cal-day, .cal-date, .cal-time { color: #909090; font-variant-numeric: tabular-nums; }
+.cal-title { color: #ffffff; overflow: hidden; text-overflow: ellipsis; }
+.cal-note { font-size: 26px; font-weight: 500; color: #b0b0b0; }
 
-/* ---- Center stage: greeting / voice orb ---- */
+/* ---- Now playing ---- */
+.np-track { font-size: 28px; font-weight: 500; line-height: 1.25; }
+.np-artist { font-size: 22px; font-weight: 500; color: #b0b0b0; margin-top: 2px; }
+/* Paused is still worth showing, just not competing with live data */
+#spotify-section.paused { opacity: 0.55; }
+
+/* ---- News ---- */
+/* Clamped to two lines so a run of long headlines can't push the column past
+   the bottom edge of the panel. */
+.news-item {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: #e0e0e0;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.news-item:last-child { margin-bottom: 0; }
+
+/* ---- Health ---- */
+/* Stale data: dim the section rather than hide it — the value is still
+   roughly useful, it just isn't current. No color, per the display rules. */
+.stale { opacity: 0.4; }
+
+/* Keeps a reserved slot even when empty — see the :empty rule above. */
+#health-line {
+  min-height: 32px;
+  font-size: 24px;
+  font-weight: 500;
+  color: #909090;
+}
+
+/* ---- Center stage: voice orb ---- */
 #center-stage {
   position: absolute;
   inset: 0;
@@ -173,20 +263,6 @@ body.dev-mode #mirror {
   pointer-events: none;
 }
 
-#greeting-line1 {
-  font-size: 76px;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-#greeting-line2 {
-  font-size: 40px;
-  font-weight: 500;
-  color: #d0d0d0;
-  margin-top: 16px;
-}
-
-/* Voice orb */
 #voice-orb {
   display: none;
   flex-direction: column;
@@ -208,10 +284,10 @@ body.dev-mode #mirror {
 .orb-circle.orb-speaking  { width: 260px; height: 260px; opacity: 1; }
 
 #voice-caption {
-  font-size: 34px;
+  font-size: 40px;
   font-weight: 500;
   color: #ffffff;
-  max-width: 760px;
+  max-width: 1200px;
 }
 
 /* Breathing pulse — overrides the universal `animation:none` via higher
@@ -229,31 +305,94 @@ body.voice-active:not(.no-motion) .orb-circle {
    State-driven visibility. Order matters: layout → sleep → voice.
    ============================================================ */
 
-/* Default (sleek): hide the rail + full-only left items */
-#right-rail,
+/* Default (sleek): clock + current weather and forecast only */
+#calendar-section,
 #commute-section,
-#today-event {
+#spotify-section,
+#news-section {
   display: none;
 }
 
-/* Full mode reveals them */
-body.layout-full #right-rail { display: flex; }
-body.layout-full #commute-section { display: block; }
-body.layout-full #today-event { display: block; }
+body.layout-full #calendar-section,
+body.layout-full #commute-section,
+body.layout-full #spotify-section,
+body.layout-full #news-section {
+  display: block;
+}
 
 /* Sleep: only a dimmed clock; everything else hidden (wins over layout) */
-body.sleeping #weather-section,
-body.sleeping #commute-section,
-body.sleeping #today-event,
-body.sleeping #right-rail,
-body.sleeping #date,
-body.sleeping #greeting,
-body.sleeping #health-line {
+body.sleeping #info-column,
+body.sleeping #day,
+body.sleeping #date {
   display: none;
 }
 body.sleeping #clock { opacity: 0.3; }
 
-/* Voice: orb replaces greeting; shows even during sleep (wins over sleep) */
+/* Voice: orb shows even during sleep (wins over sleep) */
 #voice-orb { display: none; }
-body.voice-active #greeting { display: none; }
 body.voice-active #voice-orb { display: flex; }
+
+/* ============================================================
+   Dev previews. None of this can reach the panel — the kiosk URL carries no
+   query string, so these all require a parameter to switch on.
+   ============================================================ */
+
+/* Scale the panel to fit a laptop screen, centred, hairline at the panel edge */
+body.dev-mode:not(.mirror-mode) {
+  display: flex;
+  justify-content: center;
+}
+
+body.dev-mode:not(.mirror-mode) #mirror {
+  zoom: 0.6;
+  outline: 1px solid #303030;
+}
+
+/* ?center — vertical guide on the mirror's centre line. The clock, day and
+   date should all sit symmetrically across it. */
+#center-guide { display: none; }
+body.show-center #center-guide {
+  display: block;
+  position: absolute;
+  left: var(--mirror-center-x);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #c04040;
+  z-index: 10;
+}
+
+/* ?mirror — draw the whole 21.081 x 37.478 in mirror around the panel, at
+   141.21 px/in → 2977 x 5293 px, with the panel flush into the top-right.
+   The red line is the mirror's true centre; the clock must sit on it. */
+body.mirror-mode {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+body.mirror-mode #mirror-context {
+  display: block;
+  position: relative;
+  width: 2977px;
+  height: 5293px;
+  outline: 4px solid #333333;
+  zoom: 0.2;
+}
+
+body.mirror-mode #mirror {
+  position: absolute;
+  top: 300px;   /* nominal — vertical drop doesn't affect horizontal centring */
+  right: 0;     /* flush right, as mounted */
+  outline: 3px solid #444444;
+}
+
+body.mirror-mode #mirror-context::after {
+  content: '';
+  position: absolute;
+  left: 1488px;  /* 2977 / 2 — the mirror's centre line */
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #c04040;
+}

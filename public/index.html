@@ -2,56 +2,58 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=1080">
+  <meta name="viewport" content="width=1920">
   <title>MirrorOS</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="layout-sleek">
+  <!-- display:contents normally — becomes the whole-mirror outline under ?mirror -->
+  <div id="mirror-context">
   <div id="mirror">
 
-    <div id="top-cluster">
-      <div id="left-group">
-        <section id="clock-section">
-          <div id="clock">--:--</div>
-          <div id="date"></div>
-        </section>
+    <!-- Centred on the MIRROR's axis, not the monitor's — see --mirror-center-x -->
+    <section id="clock-section">
+      <div id="clock">--:--</div>
+      <div id="day"></div>
+      <div id="date"></div>
+    </section>
 
-        <section id="weather-section">
-          <div id="weather-primary">
-            <span id="weather-temp"></span>
-            <span id="weather-condition"></span>
-          </div>
-          <div id="weather-secondary">
-            <span id="weather-city"></span>
-            <span id="weather-high-low"></span>
-            <span id="weather-rain"></span>
-          </div>
-          <div id="weather-pollen"></div>
-        </section>
+    <div id="info-column">
+      <section id="weather-section">
+        <div class="section-heading">WEATHER</div>
+        <div id="weather-primary">
+          <span id="weather-icon"></span>
+          <span id="weather-temp"></span>
+          <span id="weather-condition"></span>
+        </div>
+        <div id="weather-secondary">
+          <span id="weather-high-low"></span>
+          <span id="weather-rain"></span>
+          <span id="weather-city"></span>
+        </div>
+        <div id="weather-pollen"></div>
+      </section>
 
-        <section id="commute-section"></section>
-        <section id="today-event"></section>
-        <div id="health-line"></div>
-      </div>
-
-      <div id="right-rail">
-        <section id="news-section"></section>
-        <section id="week-section"></section>
-        <section id="next-event"></section>
-      </div>
+      <section id="week-section"></section>
+      <section id="calendar-section"></section>
+      <section id="commute-section"></section>
+      <section id="spotify-section"></section>
+      <section id="news-section"></section>
+      <div id="health-line"></div>
     </div>
 
+    <!-- Dev only: hairline on the mirror's centre line (?center) -->
+    <div id="center-guide"></div>
+
+    <!-- Voice orb: kept but not shown (see SHOW_VOICE_ORB in app.js) -->
     <div id="center-stage">
-      <div id="greeting">
-        <div id="greeting-line1"></div>
-        <div id="greeting-line2"></div>
-      </div>
       <div id="voice-orb">
         <div class="orb-circle"></div>
         <div id="voice-caption"></div>
       </div>
     </div>
 
+  </div>
   </div>
   <script src="app.js" defer></script>
 </body>

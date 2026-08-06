@@ -21,13 +21,8 @@ async function getClient() {
   return _client;
 }
 
-function esc(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
+// Titles are returned as plain text — the frontend escapes at render time, and
+// the assistant reads them as prose. Escaping here would double up in both.
 function parseEvents(icsData, rangeStart, rangeEnd) {
   const events = [];
   try {
@@ -52,13 +47,13 @@ function parseEvents(icsData, rangeStart, rangeEnd) {
           const d = next.toJSDate();
           if (d > rangeEnd) break;
           if (d >= minStart) {
-            events.push({ title: esc(event.summary || '(No title)'), startISO: d.toISOString(), isAllDay });
+            events.push({ title: event.summary || '(No title)', startISO: d.toISOString(), isAllDay });
           }
         }
       } else {
         const d = event.startDate.toJSDate();
         if (d >= minStart && d <= rangeEnd) {
-          events.push({ title: esc(event.summary || '(No title)'), startISO: d.toISOString(), isAllDay });
+          events.push({ title: event.summary || '(No title)', startISO: d.toISOString(), isAllDay });
         }
       }
     }

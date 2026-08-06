@@ -99,6 +99,9 @@ app.post('/api/voice/state', (req, res) => {
     return res.status(400).json({ error: 'state must be idle|listening|thinking|speaking' });
   }
   voiceState = { state, text: String(text || '').slice(0, 300), at: Date.now() };
+  // Talking to the mirror wakes the panel and holds it awake for a couple of
+  // minutes. Fires on 'idle' too, so the hold runs from the end of the exchange.
+  require('./display').noteVoiceActivity();
   res.json({ ok: true });
 });
 
@@ -134,6 +137,18 @@ app.get('/spotify/callback', async (req, res) => {
   }
 });
 
+// Now playing, polled by the mirror every 10s. Stays quiet until the account
+// is linked via /spotify/login — no Spotify call is made when disconnected.
+app.get('/api/spotify/now-playing', async (req, res) => {
+  if (!spotify.isConnected()) return res.json({ connected: false, playing: null });
+  try {
+    res.json({ connected: true, playing: await spotify.nowPlayingData() });
+  } catch (err) {
+    console.error('[spotify] now-playing failed:', err.message);
+    res.status(502).json({ connected: true, playing: null });
+  }
+});
+
 // Voice assistant brain (text in → spoken-style text out).
 // The voice pipeline posts transcripts here; also handy for curl testing.
 app.post('/api/assistant', async (req, res) => {
@@ -162,6 +177,7 @@ const sources = [
 ];
 
 startPolling(sources);
+require('./display').start();
 
 app.listen(PORT, () => {
   console.log(`MirrorOS running at http://localhost:${PORT}`);

@@ -1,7 +1,7 @@
 # Linux Setup — Surface Pro 4 Smart Mirror
 
 Complete walkthrough for turning a factory-reset Surface Pro 4 into the mirror:
-Debian + the linux-surface kernel, portrait display, Chromium kiosk, the Node
+Debian + the linux-surface kernel, 1920×1080 display, Chromium kiosk, the Node
 backend, and the voice assistant — all starting automatically on boot.
 
 **Written for someone who has never installed Linux.** Every command is meant to
@@ -339,25 +339,27 @@ sudo reboot
 
 ---
 
-## 11. Rotate the display to portrait
+## 11. Check the display resolution
 
-The panel is mounted portrait (1080×1920) but the graphics card outputs landscape.
+The 15.6" panel runs **landscape at its native 1920×1080** — no rotation needed.
+Confirm the resolution is right; anything other than 1920×1080 will make the
+layout look wrong, since the CSS is sized to that panel exactly.
 
-First find what your display is actually called — SSH in while the screen is on:
+SSH in while the screen is on:
 
 ```bash
 DISPLAY=:0 xrandr
 ```
 
-Look for the line ending in `connected` — e.g. `HDMI-1`, `HDMI-A-1`, or `DP-1`.
-Test the rotation live (swap in your name; try `left` if `right` is upside down):
+Look for the line ending in `connected` — e.g. `HDMI-1`, `HDMI-A-1`, or `DP-1` —
+and check that `1920x1080` is the mode marked with `*`. If it picked something
+else, force it (swap in your connector name):
 
 ```bash
-DISPLAY=:0 xrandr --output HDMI-1 --rotate right
+DISPLAY=:0 xrandr --output HDMI-1 --mode 1920x1080
 ```
 
-The screen should snap to portrait immediately. Once you've confirmed which
-direction is correct, make it permanent:
+To make it permanent:
 
 ```bash
 sudo nano /etc/X11/xorg.conf.d/90-monitor.conf
@@ -366,12 +368,11 @@ sudo nano /etc/X11/xorg.conf.d/90-monitor.conf
 ```
 Section "Monitor"
     Identifier "HDMI-1"
-    Option "Rotate" "right"
+    Option "PreferredMode" "1920x1080"
 EndSection
 ```
 
-(Use your connector name and the direction that worked.) Reboot to verify it
-survives a restart.
+Reboot to verify it survives a restart.
 
 ---
 
