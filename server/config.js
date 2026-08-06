@@ -22,8 +22,7 @@ function defaults() {
     },
     display: {
       mode: 'sleek', // 'sleek' | 'full'
-      greeting: { name: 'Gorgeous', customLine: 'Have a beautiful day' },
-      sleep: { enabled: false, start: '23:00', end: '06:00' },
+      sleep: { enabled: false, start: '23:00', end: '06:00', mode: 'dim' },
     },
     news: {
       mode: 'national', // 'national' | 'local' | 'topic'
@@ -48,6 +47,13 @@ function load() {
   } catch {
     // no config.json yet, or malformed — run on defaults
   }
+  // The greeting was removed from the mirror; drop the key an older
+  // config.json would otherwise carry forward on the next write.
+  delete base.display.greeting;
+  // The merge above is shallow per top-level section, so a saved `display`
+  // replaces base.display.sleep wholesale — a config.json written before
+  // sleep.mode existed would leave it undefined. Normalise to the default.
+  if (base.display.sleep.mode !== 'off') base.display.sleep.mode = 'dim';
   return base;
 }
 
@@ -76,14 +82,10 @@ function update(partial = {}) {
   if (partial.display && typeof partial.display === 'object') {
     const d = partial.display;
     if (d.mode === 'sleek' || d.mode === 'full') config.display.mode = d.mode;
-    if (d.greeting && typeof d.greeting === 'object') {
-      const { name, customLine } = d.greeting;
-      if (typeof name === 'string') config.display.greeting.name = name.trim().slice(0, 40);
-      if (typeof customLine === 'string') config.display.greeting.customLine = customLine.trim().slice(0, 80);
-    }
     if (d.sleep && typeof d.sleep === 'object') {
-      const { enabled, start, end } = d.sleep;
+      const { enabled, start, end, mode } = d.sleep;
       if (typeof enabled === 'boolean') config.display.sleep.enabled = enabled;
+      if (mode === 'dim' || mode === 'off') config.display.sleep.mode = mode;
       if (typeof start === 'string' && HHMM.test(start.trim())) config.display.sleep.start = start.trim();
       if (typeof end === 'string' && HHMM.test(end.trim())) config.display.sleep.end = end.trim();
     }
