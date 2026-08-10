@@ -337,19 +337,168 @@ mirror should come back to the clock with no dialogs and no login prompt.
 
 ## 10. Audio
 
-Only needed if you're adding the voice assistant later.
-
 **Settings → System → Sound** → set the output to whichever device your speakers
 are on, and the input to the USB microphone. Test the mic under *Input* → speak
 and watch the level meter.
 
-> The voice assistant itself (wake word, speech-to-text, text-to-speech) is not
-> covered here yet — it needs a whisper.cpp build on Windows. `docs/linux-setup.md` §13
-> covers the Linux equivalent.
+The Surface's built-in mics work at arm's length but not across a room. Use a
+USB mic if the mirror needs to hear you from anywhere in the bathroom.
 
 ---
 
-## 11. Updating later
+## 11. Voice assistant
+
+Wake word → record until silence → transcribe → ask Claude → speak the reply.
+All CPU, all local except the Claude call. Skip this section if you only want
+the display.
+
+Needs `ANTHROPIC_API_KEY` in `.env` (§5).
+
+### Python
+
+Install **Python 3.12** from https://www.python.org/downloads/ — *not* the
+Microsoft Store build, which sandboxes file paths and breaks the model lookups.
+Tick **"Add python.exe to PATH"** in the installer.
+
+> 3.12 specifically. 3.13/3.14 don't yet have wheels for all the audio packages,
+> and without wheels pip tries to compile them and fails.
+
+```powershell
+python --version    # expect 3.12.x
+```
+
+### Python packages
+
+```powershell
+cd $HOME\MirrorOS\voice
+python -m venv .venv
+.\.venv\Scripts\pip install -r requirements.txt
+```
+
+This should all be prebuilt wheels — `requirements.txt` pins `webrtcvad-wheels`
+rather than `webrtcvad` precisely so Windows doesn't need a C compiler.
+
+Then fetch the wake-word models (openWakeWord doesn't bundle them):
+
+```powershell
+.\.venv\Scripts\python -c "import openwakeword.utils; openwakeword.utils.download_models()"
+```
+
+### whisper.cpp
+
+No build required — grab the prebuilt Windows binary:
+
+1. Go to https://github.com/ggml-org/whisper.cpp/releases
+2. Download **`whisper-bin-x64.zip`** from the latest release
+3. Extract to `C:\whisper`
+
+You want `C:\whisper\whisper-cli.exe` to exist. Older releases name it
+`main.exe` — if so, either rename it or point `WHISPER_BIN` at that name.
+
+### Models
+
+Two downloads, ~210 MB total. Both are gitignored, so they don't come with the
+clone:
+
+```powershell
+cd $HOME\MirrorOS\voice\models
+
+# Speech-to-text (147 MB)
+curl.exe -L -o ggml-base.en.bin `
+  https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+
+# Text-to-speech voice (63 MB) — needs BOTH files
+curl.exe -L -o en_US-lessac-medium.onnx `
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx
+curl.exe -L -o en_US-lessac-medium.onnx.json `
+  https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json
+```
+
+If you already have these on your dev machine, copying them over on a USB stick
+is faster than re-downloading.
+
+### Configuration
+
+```powershell
+cd $HOME\MirrorOS\voice
+Copy-Item voice.env.example voice.env
+notepad voice.env
+```
+
+Uncomment and set the Windows paths — **absolute**, with your real username:
+
+```
+WHISPER_BIN=C:\whisper\whisper-cli.exe
+WHISPER_MODEL=C:\Users\aadha\MirrorOS\voice\models\ggml-base.en.bin
+PIPER_VOICE=C:\Users\aadha\MirrorOS\voice\models\en_US-lessac-medium.onnx
+```
+
+### Test it in pieces
+
+Each of these isolates one stage, so a failure tells you which part is broken:
+
+```powershell
+cd $HOME\MirrorOS\voice
+
+# 1. Speakers
+.\.venv\Scripts\python mirror_voice.py --say "the mirror can speak"
+
+# 2. Which audio devices exist
+.\.venv\Scripts\python mirror_voice.py --list-devices
+
+# 3. Speech-to-text on a file you record yourself (Voice Recorder app, save as WAV)
+.\.venv\Scripts\python mirror_voice.py --transcribe C:\path\to\test.wav
+
+# 4. Wake word + mic, echoing back what it heard (no Claude call)
+.\.venv\Scripts\python mirror_voice.py --echo --once
+```
+
+For step 4, say **"hey jarvis"**, wait for the chirp, then speak. It should
+repeat you back.
+
+If the wrong mic or speaker is used, set these in `voice.env` from the
+`--list-devices` output — either the index number or part of the device name:
+
+```
+AUDIO_INPUT_DEVICE=2
+AUDIO_OUTPUT_DEVICE=Speakers
+```
+
+Then the real thing:
+
+```powershell
+.\.venv\Scripts\python mirror_voice.py
+```
+
+Say "hey jarvis", then "what's the weather tomorrow". The mirror shows a
+listening orb while you speak — that's the voice pipeline reporting state back
+to the display.
+
+### Start it on boot
+
+A third scheduled task, same pattern as §9:
+
+- **General:** name `MirrorOS Voice`, run only when logged on, highest privileges
+- **Triggers:** At log on, user `aadha`, delay **45 seconds** (after the server)
+- **Actions:** Start a program:
+  - Program: `C:\Users\aadha\MirrorOS\voice\.venv\Scripts\pythonw.exe`
+  - Arguments: `mirror_voice.py`
+  - **Start in:** `C:\Users\aadha\MirrorOS\voice`
+- **Conditions:** uncheck *Start the task only if the computer is on AC power*
+- **Settings:** restart every 1 minute, up to 3 times
+
+`pythonw.exe` rather than `python.exe` so no console window flashes over the
+kiosk. **"Start in" is not optional** — the script resolves `voice.env` and the
+default model paths relative to its own directory.
+
+### Wake word
+
+`hey_jarvis` is the default and needs no setup. Changing it to something custom
+like "hey mirror" means training a model — see `docs/voice-setup.md`.
+
+---
+
+## 12. Updating later
 
 From your dev machine, push changes, then on the mirror:
 
@@ -394,3 +543,8 @@ Then `ssh mirror@<mirror-ip>` from your Mac.
 | Mirror doesn't come back after a power cut | Fast Startup still on (`powercfg /h off`), or auto-login not configured, or the firmware has no power-on-AC setting. |
 | Cursor visible over the page | Should be covered by `cursor: none`, but a wake that used a mouse event can surface it. The script uses a keyboard key specifically to avoid this — if you edited it to use `mouse_event`, that's why. |
 | Time is wrong / events off by hours | `TZ` in `.env` doesn't match Windows' timezone. Both must agree. |
+| `pip install` tries to compile and fails | Wrong Python. Must be 3.12 from python.org — not 3.13/3.14, not the Microsoft Store build. |
+| Voice: `whisper failed` | `WHISPER_BIN` path wrong, or the release named it `main.exe`. Run `whisper-cli.exe -h` by hand. |
+| Voice: wake word never fires | Wrong mic. `--list-devices`, then set `AUDIO_INPUT_DEVICE` in `voice.env`. Check the level meter in Settings → Sound → Input first. |
+| Voice: console window over the kiosk | Task is using `python.exe`; use `pythonw.exe`. |
+| Voice: works by hand, not from Task Scheduler | *Start in* is empty. It must be the `voice` folder — `voice.env` and the model paths resolve relative to it. |
