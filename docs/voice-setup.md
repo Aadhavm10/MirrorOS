@@ -134,11 +134,43 @@ Env vars, or `voice/voice.env` (copy `voice.env.example`; real env wins):
 ## Swapping the wake word
 
 Built-ins ship with openWakeWord: `hey_jarvis_v0.1`, `alexa_v0.1`,
-`hey_mycroft_v0.1`, `hey_rhasspy_v0.1`. Set `WAKE_MODEL` to any of them.
-For a custom phrase ("hey mirror"), train a model in the openWakeWord
-Colab notebook (github.com/dscripka/openWakeWord → "Training New Models"),
-drop the resulting `.onnx` somewhere, and set `WAKE_MODEL` to its absolute
-path.
+`hey_mycroft_v0.1`, `hey_rhasspy_v0.1`. Set `WAKE_MODEL` to any of them and
+you're done.
+
+### "Hey mirror" — needs training
+
+There is **no bundled "hey mirror" model**, so this isn't a config change. You
+have to train one. The good news is it's synthetic — you don't record yourself
+saying it hundreds of times.
+
+1. Open the openWakeWord training notebook in Google Colab:
+   github.com/dscripka/openWakeWord → *Training New Models* →
+   `automatic_model_training.ipynb`
+2. Set the target phrase to `hey mirror`
+3. Run it. It uses Piper (the same TTS engine this repo already uses to *speak*)
+   to synthesise thousands of variations of the phrase across different voices
+   and accents, mixes in noise and negative samples, and trains a small
+   classifier. Budget ~1 hour, nearly all of it waiting.
+4. Download the resulting `hey_mirror.onnx`
+5. Drop it in `voice/models/` and point `WAKE_MODEL` at its **absolute path**:
+
+```
+WAKE_MODEL=/home/mirror/MirrorOS/voice/models/hey_mirror.onnx
+```
+
+Then tune the threshold. A freshly trained model is usually twitchier than the
+bundled ones — start at `WAKE_THRESHOLD=0.6` and raise it if the mirror wakes
+at the TV, lower it if it ignores you. Watch `[voice] wake (0.NN)` in the log to
+see what scores you're actually getting.
+
+> Short phrases false-trigger more. "Hey mirror" is two syllables of common
+> English and will misfire more than "hey jarvis" does — if it's unusable after
+> threshold tuning, that's why, and a longer or more distinctive phrase is the
+> fix rather than more training.
+
+`mirror_voice.py` reads the model's registered name back from openWakeWord
+rather than assuming it matches `WAKE_MODEL`, so a file path works without
+further changes.
 
 ## Whisper model choice
 

@@ -173,6 +173,13 @@ def main_loop(echo=False, once=False):
     from openwakeword.model import Model
 
     oww = Model(wakeword_models=[CFG["wake_model"]], inference_framework="onnx")
+
+    # openWakeWord keys its predictions by model NAME, which is the bare alias
+    # for a bundled model ("hey_jarvis_v0.1") but the filename stem for a custom
+    # .onnx path. Ask it what it actually registered rather than assuming
+    # WAKE_MODEL is the key — otherwise a custom model KeyErrors on first audio.
+    wake_key = next(iter(oww.models))
+
     vad = webrtcvad.Vad(2)
     audio_q = queue.Queue()
 
@@ -183,14 +190,14 @@ def main_loop(echo=False, once=False):
     if device is not None and str(device).isdigit():
         device = int(device)
 
-    print(f"[voice] listening for '{CFG['wake_model']}' "
+    print(f"[voice] listening for '{wake_key}' "
           f"(threshold {CFG['wake_threshold']}, echo={echo})", flush=True)
 
     with sd.RawInputStream(samplerate=SAMPLE_RATE, blocksize=BLOCK, device=device,
                            dtype="int16", channels=1, callback=callback):
         while True:
             block = audio_q.get()
-            score = oww.predict(np.frombuffer(block, dtype=np.int16))[CFG["wake_model"]]
+            score = oww.predict(np.frombuffer(block, dtype=np.int16))[wake_key]
             if score < CFG["wake_threshold"]:
                 continue
 
