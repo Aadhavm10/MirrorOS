@@ -43,8 +43,19 @@ Register it by adding it to the `sources` array in `server/index.js`.
 On error: logs to console, leaves last good value in cache. Never crashes the server.
 
 ### API
-Single endpoint: `GET /api/data` → returns all cached data as `{ weather: {...}, calendar: [...], ... }`
+`GET /api/data` → all cached data as `{ weather: {...}, calendar: [...], settings, health }`.
 API keys live in `.env`, never reach the browser.
+
+`GET /api/rev` → `{ rev }`, a counter bumped on every config change. The mirror polls it
+every 2s and only fetches `/api/data` when the number moves, so a save on the phone lands on
+the glass in ~1–2s instead of waiting out the 60s data poll — without paying for a full
+payload and re-render every 2s. `POST /api/config` bumps it **twice**: once synchronously
+(layout mode and sleep need no network fetch, so they shouldn't queue behind a slow news
+call) and again when `refreshAll()` resolves (city/commute/news only look different once
+their source data has actually been replaced). The counter is in memory, so a server restart
+resets it to 0 — which reads as a change and makes the mirror recover on its own. All three
+config/data endpoints send `Cache-Control: no-store`; a cached `/api/rev` would defeat the
+whole mechanism.
 
 ### Config (phone-editable settings)
 `server/config.js` persists preferences to `server/config.json` (gitignored).

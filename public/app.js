@@ -341,6 +341,23 @@ async function fetchData() {
   }
 }
 
+// --- Settings-change poll ---------------------------------------------------
+// /api/data is a full payload and a full re-render, so it stays on 60s. This
+// asks the server a much cheaper question — "has anything changed?" — often
+// enough that a save on the phone shows up on the glass while you're still
+// holding it.
+let lastRev = null;
+
+async function pollRev() {
+  try {
+    const res = await fetch('/api/rev', { cache: 'no-store' });
+    const { rev } = await res.json();
+    // First response only seeds the baseline; boot already called fetchData().
+    if (lastRev !== null && rev !== lastRev) fetchData();
+    lastRev = rev;
+  } catch { /* server restarting — the next tick retries */ }
+}
+
 // --- Voice orb --------------------------------------------------------------
 function setVoice(state, text) {
   const body = document.body;
@@ -371,6 +388,9 @@ setInterval(updateClock, 1000);
 
 fetchData();
 setInterval(fetchData, 60 * 1000);
+
+pollRev();
+setInterval(pollRev, 2000);
 
 if (forcedSpotify) {
   renderSpotify({ isPlaying: true, track: 'Nights', artist: 'Frank Ocean' });

@@ -35,6 +35,11 @@ const HHMM = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
 let config = load();
 
+// Bumped on every change so the mirror can notice one without waiting for its
+// 60s data poll. In memory on purpose — a restart resets it to 0, which reads
+// as a change to the display and correctly makes it re-fetch everything.
+let revision = 0;
+
 function load() {
   const base = defaults();
   try {
@@ -95,8 +100,19 @@ function update(partial = {}) {
     if (['national', 'local', 'topic'].includes(mode)) config.news.mode = mode;
     if (typeof query === 'string') config.news.query = query.trim().slice(0, 60);
   }
+  revision += 1;
   fs.writeFileSync(FILE, JSON.stringify(config, null, 2) + '\n');
   return config;
 }
 
-module.exports = { get, update };
+function rev() {
+  return revision;
+}
+
+// Bump the revision without writing config.json — for "the cached data behind
+// these settings has caught up", which the mirror also needs to hear about.
+function touch() {
+  revision += 1;
+}
+
+module.exports = { get, update, rev, touch };

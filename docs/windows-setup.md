@@ -180,6 +180,25 @@ SPOTIFY_CLIENT_SECRET=...
 gitignored, but you don't need to copy it — it regenerates from defaults, and
 everything in it is editable from the phone settings page later.
 
+### Adding a credential later
+
+You don't have to have every key on day one — a source with no credentials just
+logs a failure and leaves its section empty. To add one afterwards:
+
+```powershell
+notepad $HOME\MirrorOS\.env
+```
+
+Then restart the server so it re-reads the file: Task Scheduler → `MirrorOS
+Server` → **Restart** (or `Ctrl+C` and `npm start` if you're running it by
+hand). Editing `.env` alone changes nothing — it's only read at startup.
+
+For iCloud calendar specifically, `CALDAV_PASSWORD` must be an
+**app-specific password** from appleid.apple.com (four dash-separated groups),
+never your Apple ID password. Watch the server output on restart:
+`[poller] calendar failed: 401` means the password was rejected; no calendar
+line at all means it worked.
+
 Smoke test:
 
 ```powershell
@@ -291,8 +310,8 @@ Two scheduled tasks. **Task Scheduler** → *Create Task* (not *Basic Task*).
 
 - **General:** name `MirrorOS Server`. Run only when user is logged on.
   Check *Run with highest privileges*.
-- **Triggers:** *At log on*, specific user `mirror`. Delay 10 seconds.
-- **Actions:** Start a program → `C:\Users\mirror\MirrorOS\deploy\start-mirror.bat`
+- **Triggers:** *At log on*, specific user `aadha`. Delay 10 seconds.
+- **Actions:** Start a program → `C:\Users\aadha\MirrorOS\deploy\start-mirror.bat`
 - **Conditions:** **uncheck** *Start the task only if the computer is on AC power*.
 - **Settings:** check *If the task fails, restart every* 1 minute, up to 3 times.
   Uncheck *Stop the task if it runs longer than*.
@@ -302,7 +321,7 @@ Two scheduled tasks. **Task Scheduler** → *Create Task* (not *Basic Task*).
 Same as above, but:
 
 - Name `MirrorOS Kiosk`, trigger delay **30 seconds**
-- Action → `C:\Users\mirror\MirrorOS\deploy\edge-kiosk.bat`
+- Action → `C:\Users\aadha\MirrorOS\deploy\edge-kiosk.bat`
 
 Both `.bat` files resolve the repo location from their own path, so the checkout
 can live anywhere — the paths above just need to match where you cloned it.
@@ -470,9 +489,17 @@ Then the real thing:
 .\.venv\Scripts\python mirror_voice.py
 ```
 
-Say "hey jarvis", then "what's the weather tomorrow". The mirror shows a
-listening orb while you speak — that's the voice pipeline reporting state back
-to the display.
+Say "hey jarvis", then "what's the weather tomorrow". It should answer out loud.
+
+**The mirror's glass stays unchanged while you talk — that is correct, not a
+fault.** The voice orb is built and still wired up, but switched off
+(`SHOW_VOICE_ORB = false` in `public/app.js`), so the only confirmation you get
+is the chirp and the spoken reply. Watch the console window instead: `[voice]
+wake (0.87)`, `[voice] heard: "..."`, `[voice] reply: "..."`.
+
+To bring the orb back, flip that constant to `true` and restart the kiosk — the
+daemon is already POSTing its state to the server whether anything is drawing it
+or not.
 
 ### Start it on boot
 

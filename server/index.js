@@ -14,6 +14,7 @@ app.use(express.json());
 
 app.get('/api/data', (req, res) => {
   const { weather, display } = config.get();
+  res.set('Cache-Control', 'no-store');
   res.json({
     ...cache.getAll(),
     settings: { timezone: weather.timezone, display },
@@ -27,13 +28,26 @@ app.get('/settings', (req, res) => {
 });
 
 app.get('/api/config', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   res.json(config.get());
 });
 
 app.post('/api/config', (req, res) => {
+  // Two bumps on purpose. config.update() bumps immediately, so settings the
+  // display can act on alone (layout mode, sleep window) land within a rev poll
+  // instead of queueing behind a slow news or commute fetch. The second bump
+  // fires once refreshAll() has actually replaced the cached data, which is the
+  // only moment a new city or commute has anything different to show.
   const updated = config.update(req.body);
-  refreshAll().catch(() => {}); // pick up new settings without waiting for the next poll
+  refreshAll().catch(() => {}).finally(() => config.touch());
   res.json(updated);
+});
+
+// Changes nothing on its own — it's the cheap thing the mirror polls every few
+// seconds so it knows when a full /api/data fetch is worth doing.
+app.get('/api/rev', (req, res) => {
+  res.set('Cache-Control', 'no-store'); // a cached rev defeats the whole point
+  res.json({ rev: config.rev() });
 });
 
 // City search for the settings page (Open-Meteo geocoding, no API key)
@@ -82,7 +96,9 @@ app.post('/api/calendar/event', async (req, res) => {
       durationMinutes: duration,
       isAllDay: Boolean(isAllDay),
     });
-    refreshAll().catch(() => {}); // show the new event on the mirror right away
+    // Re-fetch, then bump the rev so the mirror pulls it in seconds rather than
+    // on the next minute boundary.
+    refreshAll().catch(() => {}).finally(() => config.touch());
     res.status(201).json({ ok: true, ...result });
   } catch (err) {
     console.error('[calendar] createEvent failed:', err.message);
