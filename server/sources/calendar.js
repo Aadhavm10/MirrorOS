@@ -115,7 +115,13 @@ async function fetchCalendar() {
         calendar,
         timeRange: { start: now.toISOString(), end: end.toISOString() },
       });
-    } catch {
+    } catch (err) {
+      // One unreadable calendar must not take the whole section down, so keep
+      // going — but say so. Silently continuing here makes a total failure look
+      // identical to an empty week, which is a miserable thing to debug.
+      console.error(
+        `[calendar] skipped "${calendar.displayName || 'unnamed'}":`, err.message
+      );
       continue;
     }
     for (const obj of objects) {
