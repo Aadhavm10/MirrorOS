@@ -130,6 +130,22 @@ npm -v
 git --version
 ```
 
+If `npm -v` fails with *"npm.ps1 cannot be loaded because running scripts is
+disabled"*, that's PowerShell's default execution policy blocking npm's `.ps1`
+shim. Fix it for your user (no admin needed):
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+`RemoteSigned` still requires a signature on downloaded scripts, and
+`-Scope CurrentUser` leaves the rest of the machine alone. Alternatively, use
+`npm.cmd` instead of `npm` every time and change nothing.
+
+This affects you typing `npm` by hand, not MirrorOS — `display-power.ps1` is
+always invoked with its own `-ExecutionPolicy Bypass`, so the mirror never needs
+machine-wide policy weakened.
+
 ---
 
 ## 5. Get MirrorOS onto the machine
