@@ -74,10 +74,22 @@ powercfg /change monitor-timeout-dc 0
 powercfg /setacvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0
 powercfg /setdcvalueindex SCHEME_CURRENT SUB_BUTTONS LIDACTION 0
 
-# USB selective suspend off — it can drop the USB mic
-powercfg /setacvalueindex SCHEME_CURRENT SUB_USB USBSELECTIVESUSPEND 0
+# USB selective suspend off — it can drop the USB mic.
+# By GUID: there is no SUB_USB alias (subgroup / setting).
+powercfg /setacvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+powercfg /setdcvalueindex SCHEME_CURRENT 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+
+# Nothing above takes effect until the scheme is re-applied
 powercfg /setactive SCHEME_CURRENT
 ```
+
+`powercfg` is silent on success. Confirm Fast Startup is really off:
+
+```powershell
+powercfg /a
+```
+
+Hibernate should be listed under *"The following sleep states are not available"*.
 
 The Surface's own battery acts as a UPS, so a brief outage won't even interrupt
 it. For a longer one, see §9.
