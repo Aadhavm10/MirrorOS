@@ -535,11 +535,34 @@ git pull
 npm install
 ```
 
+`npm install` is only needed when `package.json` changed, but it's a no-op
+otherwise so there's no harm in always running it.
+
 Then restart the backend task:
 
 ```powershell
 Stop-ScheduledTask  -TaskName 'MirrorOS Server'
 Start-ScheduledTask -TaskName 'MirrorOS Server'
+```
+
+**If the change touched `public/` you must also reload the kiosk.** Edge is
+holding the old HTML/CSS/JS in memory; restarting the server does not reach it:
+
+```powershell
+Stop-ScheduledTask  -TaskName 'MirrorOS Kiosk'
+Start-ScheduledTask -TaskName 'MirrorOS Kiosk'
+```
+
+This is the usual reason an update looks like it "didn't do anything" — the
+backend is new, the glass is still running last week's frontend. When in doubt,
+restart both; the kiosk waits for the server to answer before launching, so the
+order sorts itself out.
+
+And if the change touched `voice/`:
+
+```powershell
+Stop-ScheduledTask  -TaskName 'MirrorOS Voice'
+Start-ScheduledTask -TaskName 'MirrorOS Voice'
 ```
 
 To do this without walking to the mirror, enable OpenSSH Server:
@@ -551,7 +574,8 @@ Set-Service -Name sshd -StartupType 'Automatic'
 netsh advfirewall firewall add rule name="OpenSSH" dir=in action=allow protocol=TCP localport=22
 ```
 
-Then `ssh mirror@<mirror-ip>` from your Mac.
+Then `ssh aadha@<mirror-ip>` from your Mac. The mirror's IP is the one you use
+for the phone settings page (§6) — `ipconfig` on the Surface if you've lost it.
 
 ---
 
