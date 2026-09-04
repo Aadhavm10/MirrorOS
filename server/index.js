@@ -5,6 +5,7 @@ const path = require('path');
 const cache = require('./cache');
 const config = require('./config');
 const { startPolling, refreshAll } = require('./poller');
+const { fetchWithTimeout } = require('./http');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -107,7 +108,7 @@ app.get('/api/geocode', async (req, res) => {
   if (q.length < 2) return res.json([]);
   try {
     const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en&format=json`;
-    const r = await globalThis.fetch(url);
+    const r = await fetchWithTimeout(url);
     if (!r.ok) throw new Error(`geocoding HTTP ${r.status}`);
     const json = await r.json();
     res.json((json.results || []).map((c) => ({
@@ -248,6 +249,20 @@ const sources = [
 
 startPolling(sources);
 require('./display').start();
+
+// Last line of defence. Node's default is to kill the process on an unhandled
+// rejection, and a dead mirror is worse than a degraded one: nobody is watching
+// the console, and Task Scheduler gives up after a few restarts. The sources
+// already never crash the server (poller.js) — this catches anything that
+// slipped past, keeps the last good data on the glass, and leaves a trail in
+// the log for whoever goes looking.
+process.on('unhandledRejection', (reason) => {
+  console.error('[fatal] unhandled rejection:', (reason && reason.stack) || reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[fatal] uncaught exception:', err.stack || err.message);
+});
 
 app.listen(PORT, () => {
   console.log(`MirrorOS running at http://localhost:${PORT}`);

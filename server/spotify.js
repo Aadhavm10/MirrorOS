@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { fetchWithTimeout } = require('./http');
 
 const TOKEN_FILE = path.join(__dirname, 'spotify-tokens.json');
 const ACCOUNTS = 'https://accounts.spotify.com';
@@ -49,7 +50,7 @@ function authUrl(state) {
 
 async function tokenRequest(body) {
   const c = creds();
-  const res = await globalThis.fetch(`${ACCOUNTS}/api/token`, {
+  const res = await fetchWithTimeout(`${ACCOUNTS}/api/token`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -94,7 +95,7 @@ async function accessToken() {
 
 async function api(method, endpoint, body) {
   const token = await accessToken();
-  const res = await globalThis.fetch(`${API}${endpoint}`, {
+  const res = await fetchWithTimeout(`${API}${endpoint}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,

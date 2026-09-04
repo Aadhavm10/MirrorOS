@@ -1,4 +1,5 @@
 const config = require('../config');
+const { fetchWithTimeout } = require('../http');
 
 const BASE = 'https://api.open-meteo.com/v1/forecast';
 
@@ -51,7 +52,7 @@ module.exports = {
   key: 'weather',
   intervalMs: 5 * 60 * 1000,
   async fetch() {
-    const res = await globalThis.fetch(`${BASE}?${buildParams()}`);
+    const res = await fetchWithTimeout(`${BASE}?${buildParams()}`);
     if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
     const json = await res.json();
     // Days 1–7 (tomorrow onward); today's numbers are already shown big

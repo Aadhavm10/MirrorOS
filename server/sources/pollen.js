@@ -5,6 +5,7 @@
 // requests/day, far under the 100/day quota cap.
 
 const config = require('../config');
+const { fetchWithTimeout } = require('../http');
 
 const ENDPOINT = 'https://pollen.googleapis.com/v1/forecast:lookup';
 
@@ -19,7 +20,7 @@ module.exports = {
     const url = `${ENDPOINT}?key=${process.env.GOOGLE_MAPS_API_KEY}` +
       `&location.latitude=${latitude}&location.longitude=${longitude}&days=1`;
 
-    const res = await globalThis.fetch(url);
+    const res = await fetchWithTimeout(url);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(`Pollen API HTTP ${res.status}: ${text.slice(0, 200)}`);

@@ -145,6 +145,26 @@ function updateClock() {
 
   const sleeping = forcedSleep || inSleepWindow(z.hour, z.minute, settings.display.sleep);
   document.body.classList.toggle('sleeping', sleeping);
+
+  maybeNightlyReload(z);
+}
+
+// The kiosk browser runs for weeks without anyone touching it, and a renderer
+// left up that long drifts — memory creeps, timers get throttled, and the page
+// quietly stops keeping up. One reload in the small hours costs nothing (the
+// glass is dim or off) and resets all of it.
+const PAGE_LOADED_AT = Date.now();
+const RELOAD_HOUR = 4;
+const MIN_UPTIME_BEFORE_RELOAD_MS = 6 * 60 * 60 * 1000;
+
+function maybeNightlyReload(z) {
+  if (params.has('dev')) return;              // don't yank the page while developing
+  if (z.hour !== RELOAD_HOUR || z.minute !== 0) return;
+  // Without an uptime floor, loading the page at 04:00 reloads it every second
+  // for a minute.
+  if (Date.now() - PAGE_LOADED_AT < MIN_UPTIME_BEFORE_RELOAD_MS) return;
+  console.log('[mirror] nightly reload');
+  location.reload();
 }
 
 // --- Weather ----------------------------------------------------------------

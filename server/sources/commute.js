@@ -12,6 +12,7 @@
 // puts it back over — see docs/google-maps-setup.md.
 
 const config = require('../config');
+const { fetchWithTimeout } = require('../http');
 
 const ENDPOINT = 'https://routes.googleapis.com/directions/v2:computeRoutes';
 const MORNING_START = 5;
@@ -62,7 +63,7 @@ async function computeRoute(origin, destination, departureTime) {
   };
   if (departureTime) body.departureTime = departureTime.toISOString();
 
-  const res = await globalThis.fetch(ENDPOINT, {
+  const res = await fetchWithTimeout(ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

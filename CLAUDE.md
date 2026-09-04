@@ -55,6 +55,21 @@ Register it by adding it to the `sources` array in `server/index.js`.
 `server/poller.js` calls `fetch()` on each timer and stores results in `server/cache.js`.
 On error: logs to console, leaves last good value in cache. Never crashes the server.
 
+**Long-run rules — this thing runs for months untouched, so failures have to be loud
+and bounded, never silent and accumulating:**
+- Every outbound request goes through `fetchWithTimeout()` in `server/http.js`. Node's fetch
+  will sit on a stalled response for ~5 minutes, which is longer than some poll intervals.
+  Never call `globalThis.fetch` directly from a source.
+- The poller skips a tick if that source's previous fetch hasn't settled, so a slow source
+  can't stack runs on a bad network.
+- A source that partially fails returns what it got; a source where *everything* failed must
+  throw. Returning an empty result caches it as fresh and marks the source healthy — that's
+  how the calendar silently showed nothing for days after a CalDAV session expired.
+- `index.js` installs `unhandledRejection`/`uncaughtException` handlers that log and keep
+  running. A degraded mirror beats a dead one when the supervisor's restart budget is finite.
+- The kiosk reloads itself at 04:00 (skipped under `?dev`) to reset a renderer that's been up
+  for weeks.
+
 ### API
 `GET /api/data` → all cached data as
 `{ weather: {...}, calendar: { a: [...], b: [...] }, commute: { a, b }, settings, health }`.

@@ -313,7 +313,12 @@ Two scheduled tasks. **Task Scheduler** → *Create Task* (not *Basic Task*).
 - **Triggers:** *At log on*, specific user `aadha`. Delay 10 seconds.
 - **Actions:** Start a program → `C:\Users\aadha\MirrorOS\deploy\start-mirror.bat`
 - **Conditions:** **uncheck** *Start the task only if the computer is on AC power*.
-- **Settings:** check *If the task fails, restart every* 1 minute, up to 3 times.
+- **Settings:** check *If the task fails, restart every* 1 minute, up to **999** times.
+
+  > Not 3. This is the mirror's only recovery path, and it has to survive months
+  > unattended — three strikes and the glass stays dark until someone notices.
+  > "Update mirror" on the settings page also restarts by exiting non-zero, so
+  > every update spends one of these attempts.
   Uncheck *Stop the task if it runs longer than*.
 
 ### Task 2 — Edge kiosk
@@ -512,7 +517,8 @@ A third scheduled task, same pattern as §9:
   - Arguments: `mirror_voice.py`
   - **Start in:** `C:\Users\aadha\MirrorOS\voice`
 - **Conditions:** uncheck *Start the task only if the computer is on AC power*
-- **Settings:** restart every 1 minute, up to 3 times
+- **Settings:** restart every 1 minute, up to 999 times (same reasoning as the
+  backend task — this has to survive unattended for months)
 
 `pythonw.exe` rather than `python.exe` so no console window flashes over the
 kiosk. **"Start in" is not optional** — the script resolves `voice.env` and the
