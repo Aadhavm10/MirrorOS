@@ -36,7 +36,7 @@
         <span id="mode-label">Sleek</span>
         <label class="toggle"><input id="display-mode" type="checkbox"><span></span></label>
       </div>
-      <p class="hint">Off = Sleek (clock and weather only). On = Full (adds week forecast, commute, calendar, and news to the mirror).</p>
+      <p class="hint">Off = Sleek (clock and weather only). On = Full (adds week forecast, commute, and calendar to the mirror).</p>
     </section>
 
     <section class="card">
@@ -67,37 +67,53 @@
     </section>
 
     <section class="card">
-      <h2>News</h2>
-      <label for="news-mode">Source</label>
-      <select id="news-mode">
-        <option value="national">US national headlines</option>
-        <option value="local">Local to my city</option>
-        <option value="topic">Custom topic</option>
-      </select>
-      <div id="news-query-field">
-        <label for="news-query">Topic or search</label>
-        <input id="news-query" type="text" placeholder="technology" autocapitalize="none">
+      <h2>Person 1</h2>
+      <label for="person-a-name">Name</label>
+      <input id="person-a-name" type="text" placeholder="Me" autocapitalize="words" maxlength="20">
+      <label for="person-a-origin">From</label>
+      <input id="person-a-origin" type="text" placeholder="Home address" autocomplete="street-address">
+      <label for="person-a-destination">To</label>
+      <input id="person-a-destination" type="text" placeholder="Work address">
+      <div class="field-row">
+        <div>
+          <label for="person-a-depart">Leave at</label>
+          <input id="person-a-depart" type="time">
+        </div>
+        <div>
+          <label for="person-a-label">Label</label>
+          <input id="person-a-label" type="text" placeholder="Work">
+        </div>
       </div>
-      <button id="news-save">Save news</button>
+      <label>Calendars to show</label>
+      <div id="person-a-calendars" class="calendar-list">Loading…</div>
+      <button id="person-a-save">Save person 1</button>
+      <p class="hint">The name labels this person's column on the mirror.
+        Unticking a calendar hides its events.</p>
     </section>
 
     <section class="card">
-      <h2>Commute</h2>
-      <label for="commute-origin">From</label>
-      <input id="commute-origin" type="text" placeholder="Home address" autocomplete="street-address">
-      <label for="commute-destination">To</label>
-      <input id="commute-destination" type="text" placeholder="Work address">
+      <h2>Person 2</h2>
+      <label for="person-b-name">Name</label>
+      <input id="person-b-name" type="text" placeholder="Partner" autocapitalize="words" maxlength="20">
+      <label for="person-b-origin">From</label>
+      <input id="person-b-origin" type="text" placeholder="Home address" autocomplete="street-address">
+      <label for="person-b-destination">To</label>
+      <input id="person-b-destination" type="text" placeholder="Work address">
       <div class="field-row">
         <div>
-          <label for="commute-depart">Leave at</label>
-          <input id="commute-depart" type="time">
+          <label for="person-b-depart">Leave at</label>
+          <input id="person-b-depart" type="time">
         </div>
         <div>
-          <label for="commute-label">Label</label>
-          <input id="commute-label" type="text" placeholder="Work">
+          <label for="person-b-label">Label</label>
+          <input id="person-b-label" type="text" placeholder="Work">
         </div>
       </div>
-      <button id="commute-save">Save commute</button>
+      <label>Calendars to show</label>
+      <div id="person-b-calendars" class="calendar-list">Loading…</div>
+      <button id="person-b-save">Save person 2</button>
+      <p class="hint">Leave the addresses blank to hide this person's commute.
+        Their calendar needs CALDAV_USERNAME_B and CALDAV_PASSWORD_B in .env.</p>
     </section>
 
     <section class="card">

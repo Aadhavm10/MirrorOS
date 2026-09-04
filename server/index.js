@@ -13,11 +13,17 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(express.json());
 
 app.get('/api/data', (req, res) => {
-  const { weather, display } = config.get();
+  const { weather, display, people } = config.get();
   res.set('Cache-Control', 'no-store');
   res.json({
     ...cache.getAll(),
-    settings: { timezone: weather.timezone, display },
+    // Only the names — the mirror labels each column with them. Addresses stay
+    // out of the display payload; the settings page reads those from /api/config.
+    settings: {
+      timezone: weather.timezone,
+      display,
+      people: { a: { name: people.a.name }, b: { name: people.b.name } },
+    },
     health: cache.health(),
   });
 });
@@ -25,6 +31,24 @@ app.get('/api/data', (req, res) => {
 // Phone settings page (add to home screen on iOS for an app-like feel)
 app.get('/settings', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'settings.html'));
+});
+
+// Calendar names on each account, for the settings page's hide-a-calendar
+// checkboxes. Hits iCloud live rather than the poll cache — it's only opened
+// when someone has the settings page in front of them.
+app.get('/api/calendars', async (req, res) => {
+  const calendar = require('./sources/calendar');
+  const out = {};
+  for (const slot of ['a', 'b']) {
+    try {
+      out[slot] = await calendar.listCalendars(slot);
+    } catch (err) {
+      console.error(`[calendars] listing "${slot}" failed:`, err.message);
+      out[slot] = [];
+    }
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json(out);
 });
 
 app.get('/api/config', (req, res) => {
@@ -35,7 +59,7 @@ app.get('/api/config', (req, res) => {
 app.post('/api/config', (req, res) => {
   // Two bumps on purpose. config.update() bumps immediately, so settings the
   // display can act on alone (layout mode, sleep window) land within a rev poll
-  // instead of queueing behind a slow news or commute fetch. The second bump
+  // instead of queueing behind a slow commute fetch. The second bump
   // fires once refreshAll() has actually replaced the cached data, which is the
   // only moment a new city or commute has anything different to show.
   const updated = config.update(req.body);
@@ -75,10 +99,13 @@ app.get('/api/geocode', async (req, res) => {
 
 // Create an iCloud calendar event (syncs to all Apple devices)
 app.post('/api/calendar/event', async (req, res) => {
-  const { title, startISO, durationMinutes = 60, isAllDay = false } = req.body || {};
+  const { title, startISO, durationMinutes = 60, isAllDay = false, person = 'a' } = req.body || {};
 
   if (typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'title is required' });
+  }
+  if (person !== 'a' && person !== 'b') {
+    return res.status(400).json({ error: "person must be 'a' or 'b'" });
   }
   const start = new Date(startISO);
   if (!startISO || Number.isNaN(start.getTime())) {
@@ -95,6 +122,7 @@ app.post('/api/calendar/event', async (req, res) => {
       startISO,
       durationMinutes: duration,
       isAllDay: Boolean(isAllDay),
+      person,
     });
     // Re-fetch, then bump the rev so the mirror pulls it in seconds rather than
     // on the next minute boundary.
@@ -189,7 +217,6 @@ const sources = [
   require('./sources/calendar'),
   require('./sources/commute'),
   require('./sources/pollen'),
-  require('./sources/news'),
 ];
 
 startPolling(sources);

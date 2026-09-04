@@ -45,9 +45,6 @@ const ICONS = {
     '<circle cx="12" cy="12" r="2.6"/>' +
     '<path d="M12 4v.01M12 20v.01M4 12v.01M20 12v.01' +
     'M6.3 6.3v.01M17.7 17.7v.01M6.3 17.7v.01M17.7 6.3v.01"/>',
-  news:
-    '<path d="M4 5h13v14H4z"/><path d="M17 9h3v8a2 2 0 0 1-2 2"/>' +
-    '<path d="M7 9h7M7 12.5h7M7 16h4"/>',
   music:
     '<path d="M9 18V5l12-2v13"/>' +
     '<circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
@@ -168,8 +165,7 @@ function renderPollen(pollen) {
     : 'None');
 }
 
-function renderCommute(c) {
-  const el = document.getElementById('commute-section');
+function renderCommute(el, c) {
   if (!c) { el.innerHTML = ''; return; }
   el.innerHTML =
     `<div class="section-heading">COMMUTE · ${esc(c.label).toUpperCase()}</div>` +
@@ -191,8 +187,15 @@ function calendarDown(health) {
   return Boolean(health && health.calendar && health.calendar.stale);
 }
 
-function renderCalendar(events, health) {
-  const el = document.getElementById('calendar-section');
+// "Sep 7", or "Jan 14 '27" once the lookahead crosses into another year —
+// a bare "Jan 14" next to a September date reads as the past.
+function fmtEventDate(d) {
+  const base = `${MONTHS[d.getMonth()]} ${d.getDate()}`;
+  const year = d.getFullYear();
+  return year === new Date().getFullYear() ? base : `${base} '${String(year).slice(2)}`;
+}
+
+function renderCalendar(el, events, health) {
   const list = (events || []).slice(0, 5);
 
   if (list.length) {
@@ -203,7 +206,7 @@ function renderCalendar(events, health) {
         const d = new Date(e.startISO);
         return '<div class="cal-row">' +
           `<span class="cal-day">${DAYS[d.getDay()]}</span>` +
-          `<span class="cal-date">${MONTHS[d.getMonth()]} ${d.getDate()}</span>` +
+          `<span class="cal-date">${fmtEventDate(d)}</span>` +
           `<span class="cal-time">${e.isAllDay ? 'All day' : fmtClock12(d)}</span>` +
           `<span class="cal-title">${esc(e.title)}</span>` +
         '</div>';
@@ -244,15 +247,24 @@ async function fetchSpotify() {
   } catch { /* server briefly unreachable — leave the last track up */ }
 }
 
-// --- News -------------------------------------------------------------------
-function renderNews(news) {
-  const el = document.getElementById('news-section');
-  if (!news || !news.length) { el.innerHTML = ''; return; }
-  el.innerHTML =
-    '<div class="section-heading">NEWS</div>' +
-    `<div class="icon-block">${icon('news', 44)}<div class="rows">` +
-    news.map((n) => `<div class="news-item">${esc(n.title)}</div>`).join('') +
-    '</div></div>';
+// --- People -----------------------------------------------------------------
+// Both sources are keyed by person slot ({ a: …, b: … }), so one pass fills
+// each column and collapses it if that person has nothing to show.
+const SLOTS = ['a', 'b'];
+
+function renderPeople(data, health) {
+  const people = (data.settings && data.settings.people) || {};
+  for (const slot of SLOTS) {
+    const col = document.querySelector(`.person-column[data-slot="${slot}"]`);
+    if (!col) continue;
+    const cal = col.querySelector('.calendar-section');
+    const com = col.querySelector('.commute-section');
+
+    col.querySelector('.person-name').textContent = (people[slot] || {}).name || '';
+    renderCalendar(cal, (data.calendar || {})[slot], health);
+    renderCommute(com, (data.commute || {})[slot]);
+    col.classList.toggle('empty', !cal.innerHTML && !com.innerHTML);
+  }
 }
 
 // --- Health -----------------------------------------------------------------
@@ -261,15 +273,15 @@ function renderNews(news) {
 
 const SOURCE_LABELS = {
   weather: 'Weather', calendar: 'Calendar', commute: 'Commute',
-  pollen: 'Pollen', news: 'News',
+  pollen: 'Pollen',
 };
 
+// CSS selectors, not ids — calendar and commute now appear once per person.
 const HEALTH_SECTIONS = {
-  weather: ['weather-section', 'week-section'],
-  calendar: ['calendar-section'],
-  commute: ['commute-section'],
-  pollen: ['weather-pollen'],
-  news: ['news-section'],
+  weather: ['#weather-section', '#week-section'],
+  calendar: ['.calendar-section'],
+  commute: ['.commute-section'],
+  pollen: ['#weather-pollen'],
 };
 
 function applyForcedStale(health) {
@@ -290,13 +302,14 @@ function renderHealth(health) {
   const stale = Object.keys(health).filter((k) => health[k].stale);
   const live = Object.keys(health).filter((k) => health[k].configured);
 
-  for (const [key, ids] of Object.entries(HEALTH_SECTIONS)) {
+  for (const [key, selectors] of Object.entries(HEALTH_SECTIONS)) {
     const isStale = Boolean(health[key] && health[key].stale);
-    for (const id of ids) {
-      const el = document.getElementById(id);
-      // Don't dim a section whose content is already an "unavailable" notice —
-      // that text is the signal, and it needs to stay readable.
-      if (el) el.classList.toggle('stale', isStale && !el.classList.contains('unavailable'));
+    for (const selector of selectors) {
+      for (const el of document.querySelectorAll(selector)) {
+        // Don't dim a section whose content is already an "unavailable" notice —
+        // that text is the signal, and it needs to stay readable.
+        el.classList.toggle('stale', isStale && !el.classList.contains('unavailable'));
+      }
     }
   }
 
@@ -332,9 +345,7 @@ async function fetchData() {
     const health = applyForcedStale(data.health);
     renderWeather(data.weather);
     renderPollen(data.pollen);
-    renderCommute(data.commute);
-    renderCalendar(data.calendar, health);
-    renderNews(data.news);
+    renderPeople(data, health);
     renderHealth(health);
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);

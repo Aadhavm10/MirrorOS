@@ -6,10 +6,16 @@ async function loadConfig() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
   document.getElementById('current-city').textContent = cfg.weather.city;
-  document.getElementById('commute-origin').value = cfg.commute.origin;
-  document.getElementById('commute-destination').value = cfg.commute.destination;
-  document.getElementById('commute-depart').value = cfg.commute.depart;
-  document.getElementById('commute-label').value = cfg.commute.label;
+  for (const slot of ['a', 'b']) {
+    const p = cfg.people[slot];
+    const field = (name) => document.getElementById(`person-${slot}-${name}`);
+    renderCalendarList(slot, p.excludeCalendars || []);
+    field('name').value = p.name;
+    field('origin').value = p.commute.origin;
+    field('destination').value = p.commute.destination;
+    field('depart').value = p.commute.depart;
+    field('label').value = p.commute.label;
+  }
 
   // Display mode
   const isFull = cfg.display.mode === 'full';
@@ -22,10 +28,6 @@ async function loadConfig() {
   document.getElementById('sleep-start').value = cfg.display.sleep.start;
   document.getElementById('sleep-end').value = cfg.display.sleep.end;
 
-  // News
-  document.getElementById('news-mode').value = cfg.news.mode;
-  document.getElementById('news-query').value = cfg.news.query || '';
-  updateNewsQueryVisibility();
 }
 
 function showToast(message, isError = false) {
@@ -102,31 +104,64 @@ async function saveCity(label, city) {
   }
 }
 
-document.getElementById('commute-save').addEventListener('click', async () => {
-  const btn = document.getElementById('commute-save');
-  btn.disabled = true;
+// Calendar names come from iCloud, so they're fetched once and cached here.
+// The config stores what's EXCLUDED; the UI shows what's included, so the two
+// are inverses of each other — tick means show.
+let calendarNames = null;
+
+async function loadCalendarNames() {
+  if (calendarNames) return calendarNames;
   try {
-    const res = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        commute: {
-          origin: document.getElementById('commute-origin').value,
-          destination: document.getElementById('commute-destination').value,
-          depart: document.getElementById('commute-depart').value,
-          label: document.getElementById('commute-label').value,
-        },
-      }),
-    });
-    if (!res.ok) throw new Error('save failed');
-    await loadConfig();
-    showToast('Commute saved ✓');
+    const res = await fetch('/api/calendars');
+    calendarNames = res.ok ? await res.json() : { a: [], b: [] };
   } catch {
-    showToast('Could not save — try again.', true);
-  } finally {
-    btn.disabled = false;
+    calendarNames = { a: [], b: [] };
   }
-});
+  return calendarNames;
+}
+
+async function renderCalendarList(slot, excluded) {
+  const box = document.getElementById(`person-${slot}-calendars`);
+  const names = (await loadCalendarNames())[slot] || [];
+  if (!names.length) {
+    box.textContent = 'No calendars found — check this person’s credentials in .env.';
+    return;
+  }
+  const hidden = new Set(excluded.map((n) => n.toLowerCase()));
+  box.innerHTML = names.map((n) => {
+    const checked = hidden.has(n.toLowerCase()) ? '' : ' checked';
+    return `<label class="calendar-item"><input type="checkbox" value="${n.replace(/"/g, '&quot;')}"${checked}> ${n}</label>`;
+  }).join('');
+}
+
+// Ticked means show, so the excluded list is everything left unticked.
+function excludedFrom(slot) {
+  const box = document.getElementById(`person-${slot}-calendars`);
+  return [...box.querySelectorAll('input[type=checkbox]')]
+    .filter((cb) => !cb.checked)
+    .map((cb) => cb.value);
+}
+
+// One handler per person — same shape, different slot.
+for (const slot of ['a', 'b']) {
+  const field = (name) => document.getElementById(`person-${slot}-${name}`);
+  field('save').addEventListener('click', () =>
+    saveSection(`person-${slot}-save`, {
+      people: {
+        [slot]: {
+          name: field('name').value,
+          excludeCalendars: excludedFrom(slot),
+          commute: {
+            origin: field('origin').value,
+            destination: field('destination').value,
+            depart: field('depart').value,
+            label: field('label').value,
+          },
+        },
+      },
+    }, `${field('name').value || 'Person'} saved ✓`)
+  );
+}
 
 // --- Add calendar event ---
 
@@ -199,22 +234,6 @@ document.getElementById('sleep-save').addEventListener('click', () =>
       },
     },
   }, 'Sleep schedule saved ✓')
-);
-
-// --- News ---
-function updateNewsQueryVisibility() {
-  const mode = document.getElementById('news-mode').value;
-  document.getElementById('news-query-field').style.display = mode === 'topic' ? 'block' : 'none';
-}
-document.getElementById('news-mode').addEventListener('change', updateNewsQueryVisibility);
-
-document.getElementById('news-save').addEventListener('click', () =>
-  saveSection('news-save', {
-    news: {
-      mode: document.getElementById('news-mode').value,
-      query: document.getElementById('news-query').value,
-    },
-  }, 'News source saved ✓')
 );
 
 // Shared helpers

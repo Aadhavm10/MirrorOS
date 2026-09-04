@@ -21,8 +21,21 @@ in `public/style.css` if the mirror size or mounting position changes.**
 The clock's ink cannot exceed 2 × 432 = 864px or it runs off the left edge; 300px font is
 near that ceiling (≈726px wide, spanning x=69..795).
 
-`#info-column` (x = 1280..1880) holds weather (with pollen as a one-line footnote), the week
-row, calendar, commute, now playing, news and the health line. Icons are inline SVG in the `ICONS` map in `public/app.js` — no icon files, no
+`#info-column` (x = 980..1880, 900px) holds weather (with pollen as a one-line footnote), the
+week row, `#people-row`, now playing and the health line. It was widened from 600px for the
+two-person layout: the clock's box ends at x=864 (`2 * --mirror-center-x`), so x=980 keeps a
+116px gutter and reclaims space that was previously dead.
+
+**Two people share the mirror.** `#people-row` is a two-column grid, one `.person-column` per
+person, each holding that person's name, calendar and commute. Everything else (weather, week,
+now playing, health) is shared and full-width. Both are keyed by slot — `'a'` and `'b'` — end
+to end: `config.people.{a,b}`, `/api/data`'s `calendar.{a,b}` and `commute.{a,b}`, and
+`.person-column[data-slot]` on the glass. A column with neither calendar nor commute gets
+`.empty` from `renderPeople()` and collapses, leaving the other at full width.
+Slot `a` uses the unsuffixed `CALDAV_*` credentials, slot `b` the `_B` pair — those two pairs
+are the *only* per-person thing in `.env`. Names, addresses and departure times are set on the
+/settings page. Don't add env seeds for them: `.env` is keys and machine-level settings only,
+and a second source of truth for a preference is how they drift apart. Icons are inline SVG in the `ICONS` map in `public/app.js` — no icon files, no
 build step. `server/sources/weather.js` maps WMO codes to icon names and returns `icon` on the
 current conditions and each week day.
 
@@ -43,15 +56,18 @@ Register it by adding it to the `sources` array in `server/index.js`.
 On error: logs to console, leaves last good value in cache. Never crashes the server.
 
 ### API
-`GET /api/data` → all cached data as `{ weather: {...}, calendar: [...], settings, health }`.
+`GET /api/data` → all cached data as
+`{ weather: {...}, calendar: { a: [...], b: [...] }, commute: { a, b }, settings, health }`.
+`settings.people` carries only the two names — commute addresses stay out of the display
+payload and are read from `/api/config` by the settings page.
 API keys live in `.env`, never reach the browser.
 
 `GET /api/rev` → `{ rev }`, a counter bumped on every config change. The mirror polls it
 every 2s and only fetches `/api/data` when the number moves, so a save on the phone lands on
 the glass in ~1–2s instead of waiting out the 60s data poll — without paying for a full
 payload and re-render every 2s. `POST /api/config` bumps it **twice**: once synchronously
-(layout mode and sleep need no network fetch, so they shouldn't queue behind a slow news
-call) and again when `refreshAll()` resolves (city/commute/news only look different once
+(layout mode and sleep need no network fetch, so they shouldn't queue behind a slow commute
+call) and again when `refreshAll()` resolves (city/commute only look different once
 their source data has actually been replaced). The counter is in memory, so a server restart
 resets it to 0 — which reads as a change and makes the mirror recover on its own. All three
 config/data endpoints send `Cache-Control: no-store`; a cached `/api/rev` would defeat the
@@ -59,7 +75,10 @@ whole mechanism.
 
 ### Config (phone-editable settings)
 `server/config.js` persists preferences to `server/config.json` (gitignored).
-Secrets stay in `.env`; config.json is only for harmless preferences (weather city, future commute origin, etc.).
+Secrets stay in `.env`; config.json is only for harmless preferences (weather city, each
+person's name and commute, layout, sleep schedule). The split is strict in both directions —
+`.env` holds keys plus `PORT`/`TZ` and nothing else, so there is exactly one place to change
+any given setting.
 - `GET /api/config` / `POST /api/config` — read/update; POST triggers an immediate re-fetch of all sources
 - `GET /api/geocode?q=City` — Open-Meteo geocoding proxy for the settings page
 - `/settings` — phone-friendly settings page (`public/settings.{html,css,js}`).
@@ -111,12 +130,13 @@ authoritative would delay the visual dim from 1s to the 60s poll. Change one, ch
   deliberate exception, and it only runs while the orb is on screen)
 - `cursor: none` on everything
 - **No divider rules** — section labels and spacing carry the structure, nothing else
-- Empty sections collapse via `#info-column > section:empty`. Keep that selector to direct
+- Empty sections collapse via `#info-column > section:empty` and `.person-column > section:empty`.
+  Keep those selectors to direct
   `section` children: a descendant `:empty` also matches `<path>`/`<circle>` inside the icons
   and hides every icon, and `#health-line` must keep its slot so a stale warning can never be
   pushed off the bottom edge
 - The info column fills the panel height almost exactly. Adding a section means taking space
-  from another one — check the worst case with `?layout=full&stale=weather,news,calendar,commute,pollen`
+  from another one — check the worst case with `?layout=full&stale=weather,calendar,commute,pollen`
 
 ## Time-of-day modes
 | Mode | Hours | Show |
@@ -126,7 +146,9 @@ authoritative would delay the visual dim from 1s to the 60s poll. Change one, ch
 | evening | 18–23 | weather + pollen + commute + tomorrow's first event |
 | night | 23–5 | dim clock only |
 
-Commute data freshness: 5 min during morning (5–10), 20 min rest of day, cache-only overnight — keeps Routes API under its 300/day cap.
+Commute data freshness: 10 min during morning (5–10), 20 min rest of day, cache-only overnight.
+Two people × two lookups = 4 requests per refresh, so ~276/day — narrowing either window puts
+it back over the Routes API's 300/day cap.
 
 ## Build phases
 - [x] Phase 1: Server + clock
@@ -144,7 +166,7 @@ npm run dev
 
 Preview params (all require a query string, so none can reach the kiosk):
 `?dev` scaled panel · `?layout=full|sleek` · `?sleep` · `?voice=listening|thinking|speaking` ·
-`?stale=weather,news,…` · `?no-motion` · `?spotify` sample now-playing track (the account is
+`?stale=weather,calendar,…` · `?no-motion` · `?spotify` sample now-playing track (the account is
 only linked at handoff, so this is the only way to check that section) ·
 `?center` hairline on the mirror's centre line ·
 **`?mirror`** draws the whole mirror around the panel with its true centre line — this is how

@@ -10,23 +10,32 @@ function defaults() {
   return {
     weather: {
       city: 'Richardson, TX',
-      latitude: parseFloat(process.env.WEATHER_LAT) || 32.9483,
-      longitude: parseFloat(process.env.WEATHER_LON) || -96.7299,
+      latitude: 32.9483,
+      longitude: -96.7299,
+      // TZ is the one env read left here: Node needs it at process start for
+      // date maths, so it can't be a phone setting like the rest of this file.
       timezone: process.env.TZ || 'America/Chicago',
     },
-    commute: {
-      origin: process.env.COMMUTE_ORIGIN || '',
-      destination: process.env.COMMUTE_DEST || '',
-      depart: process.env.COMMUTE_DEPART || '07:30',
-      label: process.env.COMMUTE_LABEL || 'Work',
+    // Two people share the mirror. Keyed 'a'/'b' rather than an array because
+    // load()'s merge spreads each section as an object — an array would come
+    // back as {0:…,1:…}. Names and addresses are set on the /settings page;
+    // only the two CalDAV credential pairs live in .env.
+    people: {
+      a: {
+        name: 'Me',
+        commute: { origin: '', destination: '', depart: '07:30', label: 'Work' },
+        // Calendar display names to hide from the mirror, chosen on /settings.
+        excludeCalendars: [],
+      },
+      b: {
+        name: 'Partner',
+        commute: { origin: '', destination: '', depart: '08:00', label: 'Work' },
+        excludeCalendars: [],
+      },
     },
     display: {
       mode: 'sleek', // 'sleek' | 'full'
       sleep: { enabled: false, start: '23:00', end: '06:00', mode: 'dim' },
-    },
-    news: {
-      mode: 'national', // 'national' | 'local' | 'topic'
-      query: '',
     },
   };
 }
@@ -42,6 +51,7 @@ let revision = 0;
 
 function load() {
   const base = defaults();
+  let legacyCommute = null;
   try {
     const saved = JSON.parse(fs.readFileSync(FILE, 'utf8'));
     for (const section of Object.keys(base)) {
@@ -49,6 +59,7 @@ function load() {
         base[section] = { ...base[section], ...saved[section] };
       }
     }
+    if (saved.commute && typeof saved.commute === 'object') legacyCommute = saved.commute;
   } catch {
     // no config.json yet, or malformed — run on defaults
   }
@@ -59,6 +70,30 @@ function load() {
   // replaces base.display.sleep wholesale — a config.json written before
   // sleep.mode existed would leave it undefined. Normalise to the default.
   if (base.display.sleep.mode !== 'off') base.display.sleep.mode = 'dim';
+
+  // Same shallow-merge problem for people: a saved `people` replaces each
+  // person wholesale, so fill any field the saved copy was missing.
+  const seed = defaults().people;
+  for (const slot of ['a', 'b']) {
+    base.people[slot] = { ...seed[slot], ...(base.people[slot] || {}) };
+    base.people[slot].commute = {
+      ...seed[slot].commute,
+      ...(base.people[slot].commute || {}),
+    };
+    // A hand-edited config.json could put anything here; the filter indexes it
+    // as an array on every calendar poll, so coerce rather than trust it.
+    if (!Array.isArray(base.people[slot].excludeCalendars)) {
+      base.people[slot].excludeCalendars = [];
+    }
+  }
+
+  // Migration: before the mirror supported two people there was a single
+  // top-level `commute`. defaults() no longer lists it, so the loop above
+  // skips it entirely — carry it onto person A rather than silently losing
+  // an address the user already typed in.
+  if (legacyCommute && !base.people.a.commute.origin) {
+    base.people.a.commute = { ...base.people.a.commute, ...legacyCommute };
+  }
   return base;
 }
 
@@ -75,14 +110,30 @@ function update(partial = {}) {
     if (Number.isFinite(longitude) && Math.abs(longitude) <= 180) config.weather.longitude = longitude;
     if (typeof timezone === 'string' && timezone.trim()) config.weather.timezone = timezone.trim();
   }
-  if (partial.commute && typeof partial.commute === 'object') {
-    const { origin, destination, depart, label } = partial.commute;
-    if (typeof origin === 'string') config.commute.origin = origin.trim();
-    if (typeof destination === 'string') config.commute.destination = destination.trim();
-    if (typeof depart === 'string' && HHMM.test(depart.trim())) {
-      config.commute.depart = depart.trim();
+  if (partial.people && typeof partial.people === 'object') {
+    for (const slot of ['a', 'b']) {
+      const p = partial.people[slot];
+      if (!p || typeof p !== 'object') continue;
+      const target = config.people[slot];
+      if (typeof p.name === 'string' && p.name.trim()) {
+        target.name = p.name.trim().slice(0, 20);
+      }
+      if (Array.isArray(p.excludeCalendars)) {
+        target.excludeCalendars = p.excludeCalendars
+          .filter((n) => typeof n === 'string' && n.trim())
+          .map((n) => n.trim().slice(0, 80))
+          .slice(0, 30);
+      }
+      if (p.commute && typeof p.commute === 'object') {
+        const { origin, destination, depart, label } = p.commute;
+        if (typeof origin === 'string') target.commute.origin = origin.trim();
+        if (typeof destination === 'string') target.commute.destination = destination.trim();
+        if (typeof depart === 'string' && HHMM.test(depart.trim())) {
+          target.commute.depart = depart.trim();
+        }
+        if (typeof label === 'string' && label.trim()) target.commute.label = label.trim();
+      }
     }
-    if (typeof label === 'string' && label.trim()) config.commute.label = label.trim();
   }
   if (partial.display && typeof partial.display === 'object') {
     const d = partial.display;
@@ -94,11 +145,6 @@ function update(partial = {}) {
       if (typeof start === 'string' && HHMM.test(start.trim())) config.display.sleep.start = start.trim();
       if (typeof end === 'string' && HHMM.test(end.trim())) config.display.sleep.end = end.trim();
     }
-  }
-  if (partial.news && typeof partial.news === 'object') {
-    const { mode, query } = partial.news;
-    if (['national', 'local', 'topic'].includes(mode)) config.news.mode = mode;
-    if (typeof query === 'string') config.news.query = query.trim().slice(0, 60);
   }
   revision += 1;
   fs.writeFileSync(FILE, JSON.stringify(config, null, 2) + '\n');

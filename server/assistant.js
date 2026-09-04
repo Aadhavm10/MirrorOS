@@ -25,8 +25,13 @@ Your replies are spoken aloud by a text-to-speech engine, so:
 
 Tools:
 - get_mirror_data: current weather, week forecast, pollen, commute times, and upcoming calendar events already on the mirror. Prefer this over web search for anything it covers.
-- create_event: add an event to the user's iCloud calendar (it syncs to their iPhone). After creating, confirm briefly what was added and when. The user's timezone is ${process.env.TZ || 'America/Chicago'} — pass startISO with the correct UTC offset for that timezone.
-- web_search: for current facts, news, or anything beyond the mirror's data.
+- create_event: add an event to one person's iCloud calendar (it syncs to their iPhone). After creating, confirm briefly what was added, when, and whose calendar. The user's timezone is ${process.env.TZ || 'America/Chicago'} — pass startISO with the correct UTC offset for that timezone.
+- web_search: for current facts or anything beyond the mirror's data.
+
+Two people share this mirror. Calendar and commute data are keyed by person slot
+("a" and "b"); get_mirror_data returns each person's name under config.people.
+When someone says "my calendar" without naming who, ask which person rather than
+guessing — writing to the wrong calendar syncs to the wrong phone.
 - spotify_control / spotify_now_playing: music playback. "Play X" means search Spotify and play it. If Spotify reports no device is available, tell the user to open Spotify somewhere first.
 
 If a request is ambiguous about date or time, make the natural assumption (e.g. "Thursday" means the upcoming Thursday) rather than asking, and state the assumption in your confirmation.`;
@@ -34,7 +39,7 @@ If a request is ambiguous about date or time, make the natural assumption (e.g. 
 const getMirrorData = betaTool({
   name: 'get_mirror_data',
   description:
-    "Read the mirror's current data: weather (today + 7-day forecast + city), pollen levels, commute times, and the next calendar events. Also returns the user's configured commute settings.",
+    "Read the mirror's current data: weather (today + 7-day forecast + city), pollen levels, commute times, and the next calendar events. Calendar and commute are objects keyed by person slot ('a' and 'b'); config.people maps each slot to that person's name.",
   inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   run: async () => JSON.stringify({ ...cache.getAll(), config: config.get() }),
 });
@@ -50,13 +55,22 @@ const createEvent = betaTool({
       startISO: { type: 'string', description: 'Start date-time, ISO 8601 with UTC offset' },
       durationMinutes: { type: 'integer', description: 'Duration in minutes (default 60)' },
       isAllDay: { type: 'boolean', description: 'True for all-day events' },
+      person: {
+        type: 'string',
+        enum: ['a', 'b'],
+        description:
+          "Whose calendar to write to. Call get_mirror_data to map a name to a slot. Defaults to 'a'.",
+      },
     },
     required: ['title', 'startISO'],
     additionalProperties: false,
   },
-  run: async ({ title, startISO, durationMinutes = 60, isAllDay = false }) => {
-    const result = await calendar.createEvent({ title, startISO, durationMinutes, isAllDay });
-    return `Created "${title}" (uid ${result.uid}) on calendar ${result.calendar}.`;
+  run: async ({ title, startISO, durationMinutes = 60, isAllDay = false, person = 'a' }) => {
+    const result = await calendar.createEvent({
+      title, startISO, durationMinutes, isAllDay, person,
+    });
+    const who = (config.get().people[person] || {}).name || person;
+    return `Created "${title}" (uid ${result.uid}) on ${who}'s calendar ${result.calendar}.`;
   },
 });
 

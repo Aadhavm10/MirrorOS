@@ -35,10 +35,23 @@
       </section>
 
       <section id="week-section"></section>
-      <section id="calendar-section"></section>
-      <section id="commute-section"></section>
+
+      <!-- One column per person: their calendar above their commute. Shared
+           sections (weather, week, Spotify, health) stay full width. -->
+      <div id="people-row">
+        <div class="person-column" data-slot="a">
+          <div class="person-name"></div>
+          <section class="calendar-section"></section>
+          <section class="commute-section"></section>
+        </div>
+        <div class="person-column" data-slot="b">
+          <div class="person-name"></div>
+          <section class="calendar-section"></section>
+          <section class="commute-section"></section>
+        </div>
+      </div>
+
       <section id="spotify-section"></section>
-      <section id="news-section"></section>
       <div id="health-line"></div>
     </div>
 

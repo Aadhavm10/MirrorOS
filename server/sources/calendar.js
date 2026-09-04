@@ -1,24 +1,46 @@
 const ICAL = require('ical.js');
 const { DAVClient } = require('tsdav');
 
-const LOOK_AHEAD_DAYS = 7;
+// How far out to look for the next few events. This is a search bound, not a
+// display window: the mirror shows the next handful whenever they fall, so a
+// quiet week shouldn't leave the column blank. Wide enough to always find
+// something, bounded so an open-ended recurring event can't expand forever.
+const LOOK_AHEAD_DAYS = 120;
 
-let _client = null;
+// Two iCloud accounts, one per person. Slot 'a' keeps the original unsuffixed
+// env var names so an existing .env keeps working untouched.
+const ACCOUNTS = {
+  a: { username: 'CALDAV_USERNAME', password: 'CALDAV_PASSWORD' },
+  b: { username: 'CALDAV_USERNAME_B', password: 'CALDAV_PASSWORD_B' },
+};
 
-async function getClient() {
-  if (_client) return _client;
+const SLOTS = ['a', 'b'];
+
+// Logged-in DAVClient per slot. Cleared on failure so the next poll re-logs in
+// rather than reusing a client whose session went bad.
+const _clients = { a: null, b: null };
+
+function credsFor(slot) {
+  const { username, password } = ACCOUNTS[slot];
+  return { username: process.env[username], password: process.env[password] };
+}
+
+function hasCreds(slot) {
+  const { username, password } = credsFor(slot);
+  return Boolean(username && password);
+}
+
+async function getClient(slot) {
+  if (_clients[slot]) return _clients[slot];
   const client = new DAVClient({
     serverUrl: 'https://caldav.icloud.com',
-    credentials: {
-      username: process.env.CALDAV_USERNAME,
-      password: process.env.CALDAV_PASSWORD,
-    },
+    credentials: credsFor(slot),
     authMethod: 'Basic',
     defaultAccountType: 'caldav',
   });
   await client.login();
-  _client = client;
-  return _client;
+  _clients[slot] = client;
+  return _clients[slot];
 }
 
 // Titles are returned as plain text — the frontend escapes at render time, and
@@ -78,20 +100,31 @@ function mockEvents() {
   ].filter(e => new Date(e.startISO) >= now || e.isAllDay);
 }
 
-async function fetchCalendar() {
-  if (process.env.MOCK_CALENDAR === '1') {
-    return mockEvents().slice(0, 6);
-  }
+// Calendar names this person has chosen to hide, lowercased for comparison.
+function excludedFor(slot) {
+  const person = require('../config').get().people[slot] || {};
+  return new Set((person.excludeCalendars || []).map((n) => String(n).toLowerCase()));
+}
 
-  if (!process.env.CALDAV_USERNAME || !process.env.CALDAV_PASSWORD) {
-    throw new Error('CALDAV_USERNAME or CALDAV_PASSWORD not set in .env');
-  }
+// Names of every VEVENT calendar on an account, for the settings page's
+// checkbox list. Subscribed feeds never reach here — tsdav's fetchCalendars()
+// leaves them out, which is also why a subscribed holidays feed would never
+// have shown on the mirror in the first place.
+async function listCalendars(slot) {
+  if (!hasCreds(slot)) return [];
+  const client = await getClient(slot);
+  const calendars = await client.fetchCalendars();
+  return calendars
+    .filter((c) => !c.components || c.components.includes('VEVENT'))
+    .map((c) => c.displayName || '(unnamed)');
+}
 
+async function fetchForSlot(slot) {
   let client;
   try {
-    client = await getClient();
+    client = await getClient(slot);
   } catch (err) {
-    _client = null;
+    _clients[slot] = null;
     throw err;
   }
 
@@ -102,13 +135,15 @@ async function fetchCalendar() {
   try {
     calendars = await client.fetchCalendars();
   } catch (err) {
-    _client = null;
+    _clients[slot] = null;
     throw err;
   }
 
   const allEvents = [];
+  const excluded = excludedFor(slot);
 
   for (const calendar of calendars) {
+    if (excluded.has(String(calendar.displayName || '').toLowerCase())) continue;
     let objects;
     try {
       objects = await client.fetchCalendarObjects({
@@ -130,9 +165,40 @@ async function fetchCalendar() {
   }
 
   allEvents.sort((a, b) => new Date(a.startISO) - new Date(b.startISO));
-  // Return more than the display max (3) so the frontend can filter by
-  // mode (e.g. evening needs tomorrow's first event even if today is busy)
-  return allEvents.slice(0, 6);
+  // A few more than the display max (5) so the frontend has some slack
+  return allEvents.slice(0, 8);
+}
+
+async function fetchCalendar() {
+  if (process.env.MOCK_CALENDAR === '1') {
+    const events = mockEvents().slice(0, 6);
+    return { a: events, b: events.slice(0, 3).reverse() };
+  }
+
+  const configured = SLOTS.filter(hasCreds);
+  if (!configured.length) {
+    throw new Error('CALDAV_USERNAME or CALDAV_PASSWORD not set in .env');
+  }
+
+  // One person's broken credentials must not blank out the other's calendar.
+  // Same reasoning as the per-calendar skip above: keep going, but say so.
+  const out = { a: null, b: null };
+  const failures = [];
+  for (const slot of configured) {
+    try {
+      out[slot] = await fetchForSlot(slot);
+    } catch (err) {
+      failures.push(`${slot}: ${err.message}`);
+      console.error(`[calendar] account "${slot}" failed:`, err.message);
+    }
+  }
+
+  // Everyone configured failed — a source failure, not a partial result, so
+  // let the poller mark it stale rather than caching a pair of nulls.
+  if (failures.length === configured.length) {
+    throw new Error(failures.join(' | '));
+  }
+  return out;
 }
 
 // --- Write support ---------------------------------------------------------
@@ -182,16 +248,19 @@ function buildIcs({ uid, title, start, durationMinutes, isAllDay }) {
   return lines.join('\r\n') + '\r\n';
 }
 
-async function createEvent({ title, startISO, durationMinutes = 60, isAllDay = false }) {
-  if (!process.env.CALDAV_USERNAME || !process.env.CALDAV_PASSWORD) {
-    throw new Error('CALDAV credentials not set in .env');
+// `person` is the slot to write to ('a' or 'b'); defaults to 'a', which is
+// whoever owns the original unsuffixed CALDAV_* credentials.
+async function createEvent({ title, startISO, durationMinutes = 60, isAllDay = false, person = 'a' }) {
+  const slot = SLOTS.includes(person) ? person : 'a';
+  if (!hasCreds(slot)) {
+    throw new Error(`CalDAV credentials for "${slot}" not set in .env`);
   }
 
   let client;
   try {
-    client = await getClient();
+    client = await getClient(slot);
   } catch (err) {
-    _client = null;
+    _clients[slot] = null;
     throw err;
   }
 
@@ -228,4 +297,5 @@ module.exports = {
   intervalMs: 5 * 60 * 1000,
   fetch: fetchCalendar,
   createEvent,
+  listCalendars,
 };
