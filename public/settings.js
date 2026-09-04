@@ -236,6 +236,30 @@ document.getElementById('sleep-save').addEventListener('click', () =>
   }, 'Sleep schedule saved ✓')
 );
 
+// --- Update ---
+// The server restarts itself on a successful pull, so the response arrives and
+// then the connection dies. That's success, not an error — don't report the
+// dropped socket as a failure.
+document.getElementById('update-run').addEventListener('click', async () => {
+  const btn = document.getElementById('update-run');
+  const status = document.getElementById('update-status');
+  btn.disabled = true;
+  status.textContent = 'Pulling…';
+  try {
+    const res = await fetch('/api/update', { method: 'POST' });
+    const r = await res.json();
+    status.textContent = r.message || (r.ok ? 'Done.' : 'Update failed.');
+    if (r.npmError) status.textContent += ` (npm install reported: ${r.npmError})`;
+    showToast(r.ok ? 'Mirror updated ✓' : 'Update failed', !r.ok);
+    if (r.changed) status.textContent += ' Restarting — give it about 10 seconds.';
+  } catch {
+    status.textContent = 'Could not reach the mirror. It may already be restarting.';
+    showToast('No response — check the mirror', true);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // Shared helpers
 function postConfig(body) {
   return fetch('/api/config', {

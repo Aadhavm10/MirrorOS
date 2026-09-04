@@ -141,9 +141,12 @@ async function fetchForSlot(slot) {
 
   const allEvents = [];
   const excluded = excludedFor(slot);
+  let attempted = 0;
+  let failed = 0;
 
   for (const calendar of calendars) {
     if (excluded.has(String(calendar.displayName || '').toLowerCase())) continue;
+    attempted += 1;
     let objects;
     try {
       objects = await client.fetchCalendarObjects({
@@ -154,6 +157,7 @@ async function fetchForSlot(slot) {
       // One unreadable calendar must not take the whole section down, so keep
       // going — but say so. Silently continuing here makes a total failure look
       // identical to an empty week, which is a miserable thing to debug.
+      failed += 1;
       console.error(
         `[calendar] skipped "${calendar.displayName || 'unnamed'}":`, err.message
       );
@@ -162,6 +166,17 @@ async function fetchForSlot(slot) {
     for (const obj of objects) {
       if (obj.data) allEvents.push(...parseEvents(obj.data, now, end));
     }
+  }
+
+  // Every calendar failing is an account-level problem — an expired session is
+  // the usual one — not a genuinely empty week. Returning [] here would cache a
+  // fresh-looking empty calendar, leave health reporting fine, and never clear
+  // the client, so the mirror would show nothing for days and say nothing was
+  // wrong. Drop the client so the next poll logs in again, and throw so the
+  // poller keeps the last good events and marks the source stale.
+  if (attempted > 0 && failed === attempted) {
+    _clients[slot] = null;
+    throw new Error(`all ${attempted} calendars failed for "${slot}" — session likely expired`);
   }
 
   allEvents.sort((a, b) => new Date(a.startISO) - new Date(b.startISO));

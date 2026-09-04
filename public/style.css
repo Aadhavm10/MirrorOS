@@ -239,18 +239,39 @@ html, body {
 .week-day-temps span { display: block; font-size: 22px; font-weight: 500; color: #808080; }
 
 /* ---- Calendar: a row per event ---- */
-.cal-row {
+/* One grid for the whole list, not one per row. Each .cal-row is
+   display:contents so its cells join the parent grid — that's what lets the
+   columns size to their widest content AND still line up across rows. The
+   old per-row grid needed fixed px tracks to align, and a 42px day column
+   isn't wide enough for "Wed", so wide weekdays overflowed into the date. */
+.cal-list {
   display: grid;
-  grid-template-columns: 42px 82px 96px 1fr;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  column-gap: 18px;
+  row-gap: 10px;
   align-items: baseline;
-  gap: 8px;
   font-size: 24px;
   font-weight: 500;
-  line-height: 1.5;
-  white-space: nowrap;
+  line-height: 1.3;
 }
-.cal-day, .cal-date, .cal-time { color: #909090; font-variant-numeric: tabular-nums; }
-.cal-title { color: #ffffff; overflow: hidden; text-overflow: ellipsis; }
+.cal-row { display: contents; }
+
+.cal-when, .cal-time {
+  color: #909090;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Titles wrap to a second line rather than truncating on the first. A
+   434px column can't hold "Reservation: Jeffrey's Restaurant" on one line,
+   and the event is useless clipped to "Reservation: Jef…". */
+.cal-title {
+  color: #ffffff;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .cal-note { font-size: 26px; font-weight: 500; color: #b0b0b0; }
 
 /* ---- Now playing ---- */

@@ -62,7 +62,20 @@ On error: logs to console, leaves last good value in cache. Never crashes the se
 payload and are read from `/api/config` by the settings page.
 API keys live in `.env`, never reach the browser.
 
-`GET /api/rev` → `{ rev }`, a counter bumped on every config change. The mirror polls it
+`GET /api/rev` → `{ rev, boot }`. `boot` is a random id minted at process start; when the
+mirror sees it change it does a full `location.reload()` rather than just re-fetching, because
+a restart usually means new `app.js`/`style.css` on disk and bumping `rev` alone would keep the
+old frontend running against new data. That's also what makes a git pull land on the glass
+without anyone restarting the kiosk by hand.
+
+`POST /api/update` → runs `git pull --ff-only` and restarts (see `server/update.js`). Refuses
+on a dirty working tree, takes no branch/remote from the request, and runs `npm install` only
+when `package.json`/`package-lock.json` moved. It exits **non-zero** on purpose: systemd's
+`Restart=always` doesn't care, but Windows Task Scheduler only restarts a task it considers
+failed, so a clean `exit(0)` there would leave the mirror dark. Triggered by the "Update
+mirror" card on /settings.
+
+`rev` is a counter bumped on every config change. The mirror polls it
 every 2s and only fetches `/api/data` when the number moves, so a save on the phone lands on
 the glass in ~1–2s instead of waiting out the 60s data poll — without paying for a full
 payload and re-render every 2s. `POST /api/config` bumps it **twice**: once synchronously
@@ -106,7 +119,8 @@ is a separate client of this endpoint — keep the brain and the audio layer dec
 ### Display power (`server/display.js`)
 `display.sleep.mode` is `'dim'` (default, CSS only — current behaviour byte-for-byte) or
 `'off'` (panel genuinely powers down). A 30s tick compares the desired state to the last one
-it set and only shells out on a change. **The only place the server shells out** — every
+it set and only shells out on a change. **One of only two places the server shells out**
+(`server/update.js` is the other) — every
 command is `execFile` with a timeout and swallowed errors, matching the never-crash contract
 in `poller.js`. Windows goes through `deploy/display-power.ps1`; macOS uses `pmset`/`caffeinate`
 so the schedule is testable on the dev machine; other platforms warn once and no-op.
@@ -119,6 +133,9 @@ authoritative would delay the visual dim from 1s to the 60s poll. Change one, ch
 
 ### Frontend
 - Clock ticks every 1s via `setInterval` + `new Date()` (no server needed)
+- **All times on the glass are 12-hour.** `zonedNow()` keeps its `hour` field 0–23 because
+  `inSleepWindow()` and the time-of-day modes do arithmetic on it — only the display string is
+  converted. `fmtHHMM12()` does the same for the `"HH:MM"` strings config stores.
 - `/api/data` polled every 60s, results rendered by widget-specific functions in `public/app.js`
 - Time-of-day mode set as a class on `<body>`: `mode-morning`, `mode-day`, `mode-evening`, `mode-night`
 

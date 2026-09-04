@@ -4,6 +4,13 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 
 function pad(n) { return String(n).padStart(2, '0'); }
 
+// "07:30" (how config stores it) -> "7:30 AM" (how the glass shows it).
+function fmtHHMM12(hhmm) {
+  const [h, m] = String(hhmm || '').split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return String(hhmm || '');
+  return `${h % 12 || 12}:${pad(m)} ${h >= 12 ? 'PM' : 'AM'}`;
+}
+
 function esc(s) {
   return String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -65,6 +72,13 @@ if (params.has('no-motion')) document.body.classList.add('no-motion');
 if (params.has('center')) document.body.classList.add('show-center');
 // ?mirror — draw the whole mirror around the panel; the real acceptance test
 if (params.has('mirror')) document.body.classList.add('mirror-mode');
+// ?center-x=470 overrides --mirror-center-x so the clock's axis can be dialled
+// in against the real glass instead of re-deriving the mounting maths. Whatever
+// value looks right goes into style.css as the new permanent default.
+const forcedCenterX = params.get('center-x');
+if (forcedCenterX && /^\d{2,4}$/.test(forcedCenterX)) {
+  document.documentElement.style.setProperty('--mirror-center-x', `${forcedCenterX}px`);
+}
 const forcedLayout = params.get('layout');   // full | sleek
 const forcedVoice = params.get('voice');      // listening | thinking | speaking
 const forcedSleep = params.has('sleep');
@@ -99,7 +113,9 @@ function zonedNow(tz) {
   return {
     hour,
     minute: parseInt(get('minute'), 10),
-    time: `${pad(hour)}:${get('minute')}`,
+    // 12-hour for display; `hour` above stays 0–23 because the sleep window
+    // and time-of-day modes do arithmetic on it.
+    time: `${hour % 12 || 12}:${get('minute')}`,
     weekday: get('weekday'),
     date: `${get('month')} ${get('day')}, ${get('year')}`,
   };
@@ -171,7 +187,7 @@ function renderCommute(el, c) {
     `<div class="section-heading">COMMUTE · ${esc(c.label).toUpperCase()}</div>` +
     `<div class="icon-block">${icon('car', 44)}<div class="rows">` +
     `<div class="row"><span>Now</span><span>${c.nowMinutes} min</span></div>` +
-    `<div class="row"><span>Leave at ${esc(c.departTime)}</span>` +
+    `<div class="row"><span>Leave at ${fmtHHMM12(c.departTime)}</span>` +
     `<span>${c.departMinutes} min</span></div>` +
     '</div></div>';
 }
@@ -202,15 +218,18 @@ function renderCalendar(el, events, health) {
     el.classList.remove('unavailable');
     el.innerHTML =
       '<div class="section-heading">CALENDAR</div>' +
+      '<div class="cal-list">' +
       list.map((e) => {
         const d = new Date(e.startISO);
+        // Day and date are one cell: they always read together, and merging
+        // them drops a column boundary the narrow person-column can't spare.
         return '<div class="cal-row">' +
-          `<span class="cal-day">${DAYS[d.getDay()]}</span>` +
-          `<span class="cal-date">${fmtEventDate(d)}</span>` +
+          `<span class="cal-when">${DAYS[d.getDay()]} ${fmtEventDate(d)}</span>` +
           `<span class="cal-time">${e.isAllDay ? 'All day' : fmtClock12(d)}</span>` +
           `<span class="cal-title">${esc(e.title)}</span>` +
         '</div>';
-      }).join('');
+      }).join('') +
+      '</div>';
   } else if (calendarDown(health)) {
     el.classList.add('unavailable');
     el.innerHTML =
@@ -358,11 +377,17 @@ async function fetchData() {
 // enough that a save on the phone shows up on the glass while you're still
 // holding it.
 let lastRev = null;
+let lastBoot = null;
 
 async function pollRev() {
   try {
     const res = await fetch('/api/rev', { cache: 'no-store' });
-    const { rev } = await res.json();
+    const { rev, boot } = await res.json();
+    // A new boot id means the server restarted — after a git pull, say — so the
+    // HTML/CSS/JS on the glass are stale. Only a full reload picks those up;
+    // fetchData() would keep running the old code against new data.
+    if (lastBoot !== null && boot !== lastBoot) { location.reload(); return; }
+    lastBoot = boot;
     // First response only seeds the baseline; boot already called fetchData().
     if (lastRev !== null && rev !== lastRev) fetchData();
     lastRev = rev;

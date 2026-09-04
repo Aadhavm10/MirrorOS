@@ -69,9 +69,36 @@ app.post('/api/config', (req, res) => {
 
 // Changes nothing on its own — it's the cheap thing the mirror polls every few
 // seconds so it knows when a full /api/data fetch is worth doing.
+// Fresh per process start. The mirror reloads the whole page when it changes,
+// which is how new frontend files reach the glass — bumping rev only re-fetches
+// data, and app.js/style.css would stay on the old version until someone
+// restarted the kiosk by hand.
+const BOOT_ID = require('crypto').randomBytes(8).toString('hex');
+
 app.get('/api/rev', (req, res) => {
   res.set('Cache-Control', 'no-store'); // a cached rev defeats the whole point
-  res.json({ rev: config.rev() });
+  res.json({ rev: config.rev(), boot: BOOT_ID });
+});
+
+// Pull the latest code and restart. See server/update.js for what it will and
+// won't do; this half owns the restart, because only the process can exit.
+app.post('/api/update', async (req, res) => {
+  let result;
+  try {
+    result = await require('./update').run();
+  } catch (err) {
+    console.error('[update] failed:', err.message);
+    return res.status(502).json({ ok: false, message: `git pull failed: ${err.message}` });
+  }
+  res.json(result);
+
+  if (result.ok && result.changed) {
+    // Exit non-zero on purpose: systemd's Restart=always doesn't care, but
+    // Windows Task Scheduler only restarts a task it considers failed, and a
+    // clean exit(0) there would leave the mirror dark until someone noticed.
+    console.log(`[update] ${result.message} — restarting`);
+    setTimeout(() => process.exit(1), 500);
+  }
 });
 
 // City search for the settings page (Open-Meteo geocoding, no API key)
