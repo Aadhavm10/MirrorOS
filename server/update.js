@@ -15,11 +15,15 @@ const { execFile } = require('child_process');
 const path = require('path');
 
 const REPO = path.join(__dirname, '..');
-const TIMEOUT_MS = 120000;
+const GIT_TIMEOUT_MS = 60000;
+// npm gets its own, much larger budget: a cold install on the Surface Pro 4
+// this runs on takes minutes, and timing it out leaves the checkout updated but
+// its dependencies missing — the worst of both states.
+const NPM_TIMEOUT_MS = 600000;
 
 function git(args) {
   return new Promise((resolve, reject) => {
-    execFile('git', args, { cwd: REPO, timeout: TIMEOUT_MS }, (err, stdout, stderr) => {
+    execFile('git', args, { cwd: REPO, timeout: GIT_TIMEOUT_MS }, (err, stdout, stderr) => {
       if (err) return reject(new Error((stderr || err.message).trim().slice(0, 300)));
       resolve(stdout.trim());
     });
@@ -28,9 +32,9 @@ function git(args) {
 
 function npmInstall() {
   return new Promise((resolve) => {
-    // Failure here is reported, not thrown: a pull that succeeded shouldn't be
-    // reported as failed because npm had a bad day. The restart will surface it.
-    execFile('npm', ['install', '--no-audit', '--no-fund'], { cwd: REPO, timeout: TIMEOUT_MS },
+    // Reported, not thrown: the pull itself succeeded, and the caller decides
+    // what a failed install means. It means "do not restart" — see run().
+    execFile('npm', ['install', '--no-audit', '--no-fund'], { cwd: REPO, timeout: NPM_TIMEOUT_MS },
       (err, stdout, stderr) => resolve(err ? (stderr || err.message).trim().slice(0, 200) : null));
   });
 }
@@ -65,15 +69,26 @@ async function run() {
     npmError = await npmInstall();
   }
 
+  // Restarting now would bring the server back running new code against
+  // dependencies that aren't installed — it would crash on boot and burn the
+  // supervisor's restart budget until the mirror is dark. Staying up on the old
+  // in-memory code is strictly better: everything keeps working, and the
+  // message says what to fix.
+  const restart = !npmError;
+
   return {
     ok: true,
     changed: true,
+    restart,
     from: before.slice(0, 7),
     to: after.slice(0, 7),
     files: changedFiles.length,
     subject,
     npmError,
-    message: `Updated to ${after.slice(0, 7)} — ${subject}`,
+    message: npmError
+      ? `Pulled ${after.slice(0, 7)} but npm install failed — NOT restarting, the mirror is ` +
+        'still running the old code. Run npm install on the mirror by hand.'
+      : `Updated to ${after.slice(0, 7)} — ${subject}`,
   };
 }
 

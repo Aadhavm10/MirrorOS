@@ -251,7 +251,7 @@ document.getElementById('update-run').addEventListener('click', async () => {
     status.textContent = r.message || (r.ok ? 'Done.' : 'Update failed.');
     if (r.npmError) status.textContent += ` (npm install reported: ${r.npmError})`;
     showToast(r.ok ? 'Mirror updated ✓' : 'Update failed', !r.ok);
-    if (r.changed) status.textContent += ' Restarting — give it about 10 seconds.';
+    if (r.changed && r.restart) status.textContent += ' Restarting — give it about 10 seconds.';
   } catch {
     status.textContent = 'Could not reach the mirror. It may already be restarting.';
     showToast('No response — check the mirror', true);

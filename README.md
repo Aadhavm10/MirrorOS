@@ -43,9 +43,19 @@ chmod +x deploy/chromium-launch.sh
 
 ## Environment variables
 
+`.env` holds **keys and machine-level settings only**. Names, weather city, commute addresses,
+departure times, layout and the sleep schedule are all edited on the phone at `/settings` and
+stored in `server/config.json` — don't add env vars for them.
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
-| `TZ` | `America/Chicago` | Timezone (set in OS env, not just .env) |
-| `CALDAV_USERNAME` | — | Apple ID (Phase 3) |
-| `CALDAV_PASSWORD` | — | App-specific password (Phase 3) |
+| `TZ` | `America/Chicago` | Timezone (set in OS env, not just .env) — Node needs it at process start |
+| `CALDAV_USERNAME` | — | Person 1's Apple ID |
+| `CALDAV_PASSWORD` | — | Person 1's app-specific password |
+| `CALDAV_USERNAME_B` | — | Person 2's Apple ID (blank = one-person mirror) |
+| `CALDAV_PASSWORD_B` | — | Person 2's app-specific password |
+| `GOOGLE_MAPS_API_KEY` | — | Commute + pollen (see docs/google-maps-setup.md) |
+| `ANTHROPIC_API_KEY` | — | Voice assistant brain |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | — | Playback control (see docs/spotify-setup.md) |
+| `MOCK_CALENDAR` / `MOCK_COMMUTE` | `0` | Serve fake data to preview the layout without credentials |

@@ -93,7 +93,7 @@ app.post('/api/update', async (req, res) => {
   }
   res.json(result);
 
-  if (result.ok && result.changed) {
+  if (result.ok && result.changed && result.restart) {
     // Exit non-zero on purpose: systemd's Restart=always doesn't care, but
     // Windows Task Scheduler only restarts a task it considers failed, and a
     // clean exit(0) there would leave the mirror dark until someone noticed.

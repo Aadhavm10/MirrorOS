@@ -201,8 +201,16 @@ function renderPollen(pollen) {
     : 'None');
 }
 
-function renderCommute(el, c) {
-  if (!c) { el.innerHTML = ''; return; }
+function renderCommute(el, c, failed) {
+  if (!c) {
+    el.classList.toggle('unavailable', Boolean(failed));
+    el.innerHTML = failed
+      ? '<div class="section-heading">COMMUTE</div>' +
+        '<div class="cal-note">Commute unavailable</div>'
+      : '';
+    return;
+  }
+  el.classList.remove('unavailable');
   el.innerHTML =
     `<div class="section-heading">COMMUTE · ${esc(c.label).toUpperCase()}</div>` +
     `<div class="icon-block">${icon('car', 44)}<div class="rows">` +
@@ -231,7 +239,7 @@ function fmtEventDate(d) {
   return year === new Date().getFullYear() ? base : `${base} '${String(year).slice(2)}`;
 }
 
-function renderCalendar(el, events, health) {
+function renderCalendar(el, events, health, failed) {
   const list = (events || []).slice(0, 5);
 
   if (list.length) {
@@ -250,7 +258,7 @@ function renderCalendar(el, events, health) {
         '</div>';
       }).join('') +
       '</div>';
-  } else if (calendarDown(health)) {
+  } else if (failed || calendarDown(health)) {
     el.classList.add('unavailable');
     el.innerHTML =
       '<div class="section-heading">CALENDAR</div>' +
@@ -299,9 +307,15 @@ function renderPeople(data, health) {
     const cal = col.querySelector('.calendar-section');
     const com = col.querySelector('.commute-section');
 
+    // A source can succeed overall while one person's account failed, so the
+    // per-slot `failed` list is the only thing that separates "nothing on"
+    // from "couldn't reach it" for that column.
+    const calFailed = ((data.calendar || {}).failed || []).includes(slot);
+    const comFailed = ((data.commute || {}).failed || []).includes(slot);
+
     col.querySelector('.person-name').textContent = (people[slot] || {}).name || '';
-    renderCalendar(cal, (data.calendar || {})[slot], health);
-    renderCommute(com, (data.commute || {})[slot]);
+    renderCalendar(cal, (data.calendar || {})[slot], health, calFailed);
+    renderCommute(com, (data.commute || {})[slot], comFailed);
     col.classList.toggle('empty', !cal.innerHTML && !com.innerHTML);
   }
 }

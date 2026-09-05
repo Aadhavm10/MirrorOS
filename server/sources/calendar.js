@@ -180,14 +180,29 @@ async function fetchForSlot(slot) {
   }
 
   allEvents.sort((a, b) => new Date(a.startISO) - new Date(b.startISO));
+
+  // Keep only the soonest occurrence of each title. Over a 120-day window a
+  // recurring event expands into dozens of identical rows and crowds out
+  // everything else — one real calendar here shows "New Event" three times in
+  // its first eight. "The next few events" means the next few *different*
+  // things; the next Gym is worth a row, the three after it aren't.
+  const seen = new Set();
+  const unique = [];
+  for (const event of allEvents) {
+    const key = event.title.trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(event);
+  }
+
   // A few more than the display max (5) so the frontend has some slack
-  return allEvents.slice(0, 8);
+  return unique.slice(0, 8);
 }
 
 async function fetchCalendar() {
   if (process.env.MOCK_CALENDAR === '1') {
     const events = mockEvents().slice(0, 6);
-    return { a: events, b: events.slice(0, 3).reverse() };
+    return { a: events, b: events.slice(0, 3).reverse(), failed: [] };
   }
 
   const configured = SLOTS.filter(hasCreds);
@@ -197,13 +212,18 @@ async function fetchCalendar() {
 
   // One person's broken credentials must not blank out the other's calendar.
   // Same reasoning as the per-calendar skip above: keep going, but say so.
-  const out = { a: null, b: null };
+  // `failed` carries which slots broke, because a partial failure still returns
+  // successfully — without it the poller reports the source healthy and that
+  // person's column just silently disappears, which is the exact ambiguity
+  // between "nothing scheduled" and "couldn't reach it" this file exists to avoid.
+  const out = { a: null, b: null, failed: [] };
   const failures = [];
   for (const slot of configured) {
     try {
       out[slot] = await fetchForSlot(slot);
     } catch (err) {
       failures.push(`${slot}: ${err.message}`);
+      out.failed.push(slot);
       console.error(`[calendar] account "${slot}" failed:`, err.message);
     }
   }

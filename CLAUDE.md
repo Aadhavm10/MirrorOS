@@ -185,7 +185,7 @@ it back over the Routes API's 300/day cap.
 ## Build phases
 - [x] Phase 1: Server + clock
 - [x] Phase 2: Weather (Open-Meteo, no API key, Richardson TX)
-- [ ] Phase 3: Calendar (iCloud CalDAV via `tsdav`)
+- [x] Phase 3: Calendar (iCloud CalDAV via `tsdav`, two accounts, read + write)
 - [x] Phase 4: Time-of-day mode switching (CSS visibility)
 
 ## Dev mode

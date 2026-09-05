@@ -16,14 +16,22 @@ require('dotenv').config();
 const { DAVClient } = require('tsdav');
 const ICAL = require('ical.js');
 
-const LOOK_AHEAD_DAYS = 7;
+// Must match server/sources/calendar.js — a script that reports a different
+// window than the mirror actually searches is worse than no script at all.
+const LOOK_AHEAD_DAYS = 120;
 
-async function main() {
-  const { CALDAV_USERNAME, CALDAV_PASSWORD } = process.env;
+// Both accounts. Slot 'a' is the unsuffixed pair, 'b' the _B pair.
+const ACCOUNTS = [
+  ['a', 'CALDAV_USERNAME', 'CALDAV_PASSWORD'],
+  ['b', 'CALDAV_USERNAME_B', 'CALDAV_PASSWORD_B'],
+];
+
+async function checkAccount(slot, CALDAV_USERNAME, CALDAV_PASSWORD) {
+  console.log(`\n${'='.repeat(60)}\nACCOUNT "${slot}"\n${'='.repeat(60)}`);
   console.log('username set:', Boolean(CALDAV_USERNAME));
   console.log('password set:', Boolean(CALDAV_PASSWORD));
   if (!CALDAV_USERNAME || !CALDAV_PASSWORD) {
-    console.log('\n-> Credentials missing from .env. Nothing else to test.');
+    console.log(`-> No credentials for slot "${slot}". Skipping.`);
     return;
   }
   if (/^\w{4}-\w{4}-\w{4}-\w{4}$/.test(CALDAV_PASSWORD)) {
@@ -110,12 +118,26 @@ async function main() {
   console.log(`\ntotal objects in window across all calendars: ${grandTotal}`);
   if (grandTotal === 0) {
     console.log(
-      '\n-> Nothing scheduled in the next 7 days in ANY iCloud calendar on this\n' +
+      `\n-> Nothing scheduled in the next ${LOOK_AHEAD_DAYS} days in ANY iCloud calendar on this\n` +
       '   account. If your phone shows events this week, they probably live in a\n' +
       '   Google/Exchange account that Apple Calendar displays alongside iCloud —\n' +
       '   CalDAV to icloud.com cannot see those.'
     );
   }
+}
+
+async function main() {
+  for (const [slot, userVar, passVar] of ACCOUNTS) {
+    try {
+      await checkAccount(slot, process.env[userVar], process.env[passVar]);
+    } catch (err) {
+      console.error(`\nACCOUNT "${slot}" FAILED:`, err.message);
+      console.error('401/403 -> wrong app-specific password, or 2FA not enabled.');
+    }
+  }
+  console.log('\nNote: iCloud does not serve the Birthdays calendar (generated from');
+  console.log('Contacts) or subscribed feeds like US Holidays over CalDAV. If you see');
+  console.log('those in Apple Calendar but not here, that is why.');
 }
 
 main().catch((err) => {

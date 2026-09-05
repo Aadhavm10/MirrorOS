@@ -42,6 +42,7 @@ function mockCommute() {
       departMinutes: 22,
       departTime: people.b.commute.depart,
     },
+    failed: [],
   };
 }
 
@@ -121,14 +122,17 @@ async function fetchCommute() {
   }
 
   // One person's broken address must not blank out the other's commute, but
-  // it should still be visible in the log rather than silently disappearing.
-  const out = { a: null, b: null };
+  // it should still be visible on the glass, not just in a log nobody reads.
+  // `failed` is what lets the mirror say "unavailable" for that person instead
+  // of rendering an empty section that looks like a normal quiet day.
+  const out = { a: null, b: null, failed: [] };
   const failures = [];
   for (const slot of configured) {
     try {
       out[slot] = await routeFor(people[slot]);
     } catch (err) {
       failures.push(`${people[slot].name}: ${err.message}`);
+      out.failed.push(slot);
       console.error(`[commute] ${people[slot].name} failed:`, err.message);
     }
   }
