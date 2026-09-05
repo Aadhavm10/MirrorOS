@@ -168,17 +168,30 @@ It needs, at minimum:
 
 ```
 TZ=America/Chicago
-CALDAV_USERNAME=you@icloud.com
+CALDAV_USERNAME=person1@icloud.com
 CALDAV_PASSWORD=app-specific-password
+CALDAV_USERNAME_B=person2@icloud.com
+CALDAV_PASSWORD_B=their-app-specific-password
 GOOGLE_MAPS_API_KEY=...
 ANTHROPIC_API_KEY=...
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
 ```
 
-`server/config.json` (city, commute addresses, sleep schedule) is also
-gitignored, but you don't need to copy it — it regenerates from defaults, and
-everything in it is editable from the phone settings page later.
+**The mirror shows two people.** Each needs their own Apple ID and their own
+app-specific password from appleid.apple.com — one account cannot read the
+other's calendar. The unsuffixed pair is the left column, `_B` is the right.
+Leave the `_B` pair blank to run a one-person mirror; that column just collapses
+and the other goes full width.
+
+Whoever owns `CALDAV_USERNAME` gets the left column. If that ends up backwards,
+swap the two pairs here rather than renaming people on the settings page — the
+names are only labels, the credentials decide which calendar appears where.
+
+`server/config.json` (city, both people's names and commute addresses, layout,
+sleep schedule) is also gitignored, but you don't need to copy it — it
+regenerates from defaults, and everything in it is editable from the phone
+settings page later.
 
 ### Adding a credential later
 
