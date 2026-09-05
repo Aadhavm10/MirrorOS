@@ -301,11 +301,21 @@ const SLOTS = ['a', 'b'];
 
 function renderPeople(data, health) {
   const people = (data.settings && data.settings.people) || {};
+  const show = ((data.settings || {}).display || {}).showPeople || 'both';
   for (const slot of SLOTS) {
     const col = document.querySelector(`.person-column[data-slot="${slot}"]`);
     if (!col) continue;
     const cal = col.querySelector('.calendar-section');
     const com = col.querySelector('.commute-section');
+
+    // Deliberately hidden: clear the sections too, so a later switch back to
+    // 'both' can't flash this person's stale events before the next fetch.
+    if (show !== 'both' && show !== slot) {
+      cal.innerHTML = '';
+      com.innerHTML = '';
+      col.classList.add('empty');
+      continue;
+    }
 
     // A source can succeed overall while one person's account failed, so the
     // per-slot `failed` list is the only thing that separates "nothing on"

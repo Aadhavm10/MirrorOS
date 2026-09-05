@@ -6,6 +6,12 @@ async function loadConfig() {
   const res = await fetch('/api/config');
   const cfg = await res.json();
   document.getElementById('current-city').textContent = cfg.weather.city;
+  // Label the "Show" options with the real names rather than "Person 1/2".
+  const showSel = document.getElementById('show-people');
+  showSel.options[1].textContent = `${cfg.people.a.name || 'Person 1'} only`;
+  showSel.options[2].textContent = `${cfg.people.b.name || 'Person 2'} only`;
+  showSel.value = cfg.display.showPeople || 'both';
+
   for (const slot of ['a', 'b']) {
     const p = cfg.people[slot];
     const field = (name) => document.getElementById(`person-${slot}-${name}`);
@@ -206,6 +212,19 @@ document.getElementById('event-save').addEventListener('click', async () => {
     showToast('Could not create the event — try again.', true);
   } finally {
     btn.disabled = false;
+  }
+});
+
+// --- Who to show (saves immediately, like the mode toggle above) ---
+document.getElementById('show-people').addEventListener('change', async (e) => {
+  const showPeople = e.target.value;
+  const label = e.target.options[e.target.selectedIndex].textContent;
+  try {
+    const res = await postConfig({ display: { showPeople } });
+    if (!res.ok) throw new Error();
+    showToast(`Showing ${label.toLowerCase()} ✓`);
+  } catch {
+    showToast('Could not save — try again.', true);
   }
 });
 

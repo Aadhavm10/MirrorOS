@@ -32,6 +32,12 @@ now playing, health) is shared and full-width. Both are keyed by slot — `'a'` 
 to end: `config.people.{a,b}`, `/api/data`'s `calendar.{a,b}` and `commute.{a,b}`, and
 `.person-column[data-slot]` on the glass. A column with neither calendar nor commute gets
 `.empty` from `renderPeople()` and collapses, leaving the other at full width.
+
+`display.showPeople` (`'both' | 'a' | 'b'`) picks whose column appears — a separate axis from
+`display.mode`, not a third value of it: they're independent, and folding them together would
+mean four values that each also have to answer "sleek or full?". It's inert in sleek mode,
+which shows no columns at all. The settings page labels the options with the two configured
+names rather than hardcoding either.
 Slot `a` uses the unsuffixed `CALDAV_*` credentials, slot `b` the `_B` pair — those two pairs
 are the *only* per-person thing in `.env`. Names, addresses and departure times are set on the
 /settings page. Don't add env seeds for them: `.env` is keys and machine-level settings only,

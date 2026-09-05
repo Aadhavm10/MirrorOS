@@ -35,6 +35,11 @@ function defaults() {
     },
     display: {
       mode: 'sleek', // 'sleek' | 'full'
+      // Which person's column to show: 'both', or a single slot. Kept separate
+      // from `mode` on purpose — they're independent axes, and folding them
+      // together would mean four values that each have to answer "sleek or
+      // full?" as well. Inert in sleek mode, which shows no columns at all.
+      showPeople: 'both', // 'both' | 'a' | 'b'
       sleep: { enabled: false, start: '23:00', end: '06:00', mode: 'dim' },
     },
   };
@@ -70,6 +75,12 @@ function load() {
   // replaces base.display.sleep wholesale — a config.json written before
   // sleep.mode existed would leave it undefined. Normalise to the default.
   if (base.display.sleep.mode !== 'off') base.display.sleep.mode = 'dim';
+  // Unlike sleep.mode this survives the merge (it's a direct key of `display`,
+  // not nested), but a hand-edited config.json could still put anything here
+  // and the frontend compares it against a slot name every render.
+  if (!['both', 'a', 'b'].includes(base.display.showPeople)) {
+    base.display.showPeople = 'both';
+  }
 
   // Same shallow-merge problem for people: a saved `people` replaces each
   // person wholesale, so fill any field the saved copy was missing.
@@ -138,6 +149,7 @@ function update(partial = {}) {
   if (partial.display && typeof partial.display === 'object') {
     const d = partial.display;
     if (d.mode === 'sleek' || d.mode === 'full') config.display.mode = d.mode;
+    if (['both', 'a', 'b'].includes(d.showPeople)) config.display.showPeople = d.showPeople;
     if (d.sleep && typeof d.sleep === 'object') {
       const { enabled, start, end, mode } = d.sleep;
       if (typeof enabled === 'boolean') config.display.sleep.enabled = enabled;
