@@ -24,6 +24,22 @@ const OFF_PEAK_MAX_AGE_MS = 20 * 60 * 1000;
 const SLOTS = ['a', 'b'];
 
 let lastFetchMs = 0;
+// What the addresses looked like on the last successful fetch. The freshness
+// gate below would otherwise keep serving a cached result for up to 20 minutes
+// after someone edits a commute on their phone — the save works, refreshAll()
+// runs, and the mirror still shows the old answer (or nothing, for a person who
+// just got their first address). A deliberate settings change should always win
+// over the quota window; they're rare enough not to matter to the daily budget.
+let lastSignature = '';
+
+function signature(people) {
+  return SLOTS
+    .map((slot) => {
+      const c = people[slot].commute;
+      return `${c.origin}|${c.destination}|${c.depart}`;
+    })
+    .join('||');
+}
 
 function mockCommute() {
   const people = config.get().people;
@@ -116,7 +132,9 @@ async function fetchCommute() {
   const inMorning = hour >= MORNING_START && hour < MORNING_END;
   const atNight = hour >= NIGHT_START || hour < MORNING_START;
   const maxAge = inMorning ? MORNING_MAX_AGE_MS : OFF_PEAK_MAX_AGE_MS;
-  if (cached) {
+  const sig = signature(people);
+  const addressesChanged = sig !== lastSignature;
+  if (cached && !addressesChanged) {
     if (atNight) return cached;
     if (Date.now() - lastFetchMs < maxAge) return cached;
   }
@@ -144,6 +162,7 @@ async function fetchCommute() {
   }
 
   lastFetchMs = Date.now();
+  lastSignature = sig;
   return out;
 }
 

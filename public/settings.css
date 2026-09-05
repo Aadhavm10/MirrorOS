@@ -254,14 +254,27 @@ h1 {
   padding: 12px 4px 0;
 }
 
+/* Pinned to the viewport, not the document. This sits near the bottom of the
+   markup, so in normal flow it rendered hundreds of pixels below whichever card
+   you just saved and auto-hid before you could scroll to it — the save worked
+   and looked like it hadn't. */
 #toast {
-  margin-top: 20px;
-  padding: 14px 16px;
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Clear of the iPhone home indicator. */
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  padding: 14px 18px;
   background: #1a2e1a;
   border: 1px solid #2e5c2e;
   border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
   font-size: 15px;
   font-weight: 500;
+  text-align: center;
 }
 
 #toast.error {
