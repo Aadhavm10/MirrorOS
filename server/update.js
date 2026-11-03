@@ -16,9 +16,9 @@ const path = require('path');
 
 const REPO = path.join(__dirname, '..');
 const GIT_TIMEOUT_MS = 60000;
-// npm gets its own, much larger budget: a cold install on the Surface Pro 4
-// this runs on takes minutes, and timing it out leaves the checkout updated but
-// its dependencies missing — the worst of both states.
+// npm gets its own, much larger budget: a cold install over the mirror's Wi-Fi
+// can take minutes, and timing it out leaves the checkout updated but its
+// dependencies missing — the worst of both states.
 const NPM_TIMEOUT_MS = 600000;
 
 function git(args) {

@@ -53,20 +53,20 @@ Node server running).
 
 ---
 
-## Production setup (Surface Pro 4, Debian x86)
+## Production setup (OptiPlex, Linux Mint)
 
 ```bash
 sudo apt install python3-venv python3-dev libportaudio2 build-essential cmake
 
-cd /home/mirror/MirrorOS/voice
+cd /home/aadhav/MirrorOS/voice
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-# whisper.cpp from source (no brew on Linux; takes a few minutes on the i5)
-git clone https://github.com/ggerganov/whisper.cpp /home/mirror/whisper.cpp
-cmake -B /home/mirror/whisper.cpp/build /home/mirror/whisper.cpp
-cmake --build /home/mirror/whisper.cpp/build -j --config Release
-# binary: /home/mirror/whisper.cpp/build/bin/whisper-cli
+# whisper.cpp from source (no brew on Linux; a few minutes on the OptiPlex)
+git clone https://github.com/ggerganov/whisper.cpp /home/aadhav/whisper.cpp
+cmake -B /home/aadhav/whisper.cpp/build /home/aadhav/whisper.cpp
+cmake --build /home/aadhav/whisper.cpp/build -j --config Release
+# binary: /home/aadhav/whisper.cpp/build/bin/whisper-cli
 
 # models — same three downloads as macOS above
 ```
@@ -74,12 +74,12 @@ cmake --build /home/mirror/whisper.cpp/build -j --config Release
 Point the daemon at the built binary with `voice/voice.env`:
 
 ```
-WHISPER_BIN=/home/mirror/whisper.cpp/build/bin/whisper-cli
+WHISPER_BIN=/home/aadhav/whisper.cpp/build/bin/whisper-cli
 ```
 
 ### Audio devices
 
-The mic (USB) and speakers (HDMI to the TV mainboard) may not be defaults:
+The mic (USB) and speakers (the panel's HDMI audio, or the OptiPlex's headphone jack) may not be defaults:
 
 ```bash
 .venv/bin/python mirror_voice.py --list-devices
@@ -99,11 +99,15 @@ After=network.target mirroros.service
 
 [Service]
 Type=simple
-User=mirror
-WorkingDirectory=/home/mirror/MirrorOS/voice
-ExecStart=/home/mirror/MirrorOS/voice/.venv/bin/python mirror_voice.py
+User=aadhav
+WorkingDirectory=/home/aadhav/MirrorOS/voice
+ExecStart=/home/aadhav/MirrorOS/voice/.venv/bin/python mirror_voice.py
 Restart=always
 RestartSec=5
+# Mint's audio goes through PipeWire, which runs in the desktop session. This
+# points the service at that session's sound server; 1000 is aadhav's uid
+# (check with `id -u`).
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 
 [Install]
 WantedBy=multi-user.target
@@ -125,7 +129,7 @@ Env vars, or `voice/voice.env` (copy `voice.env.example`; real env wins):
 | `MIRROR_URL` | `http://localhost:3000` | Node server |
 | `WAKE_MODEL` | `hey_jarvis_v0.1` | see "Swapping the wake word" |
 | `WAKE_THRESHOLD` | `0.5` | raise to ~0.6 if false triggers |
-| `WHISPER_BIN` | `whisper-cli` | absolute path on the Surface |
+| `WHISPER_BIN` | `whisper-cli` | absolute path on the mirror |
 | `WHISPER_MODEL` | `voice/models/ggml-base.en.bin` | `ggml-small.en.bin` = better, slower |
 | `PIPER_VOICE` | `voice/models/en_US-lessac-medium.onnx` | any Piper voice |
 | `AUDIO_INPUT_DEVICE` | system default | index or name substring |
@@ -155,7 +159,7 @@ saying it hundreds of times.
 5. Drop it in `voice/models/` and point `WAKE_MODEL` at its **absolute path**:
 
 ```
-WAKE_MODEL=/home/mirror/MirrorOS/voice/models/hey_mirror.onnx
+WAKE_MODEL=/home/aadhav/MirrorOS/voice/models/hey_mirror.onnx
 ```
 
 Then tune the threshold. A freshly trained model is usually twitchier than the
@@ -175,6 +179,6 @@ further changes.
 ## Whisper model choice
 
 `base.en` (148 MB) transcribes a short command in well under a second on
-the Mac and a couple of seconds on the Surface's i5 — fine for commands.
+the Mac and a second or two on the OptiPlex — fine for commands.
 If accuracy disappoints, download `ggml-small.en.bin` (488 MB) the same way
 and point `WHISPER_MODEL` at it.

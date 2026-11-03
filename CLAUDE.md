@@ -1,6 +1,11 @@
 # MirrorOS
 
-Custom smart mirror software for a Surface Pro 4 mounted behind two-way mirror glass.
+Custom smart mirror software behind two-way mirror glass, driven by a **Dell OptiPlex 3090
+Micro running Linux Mint 22.3 Cinnamon** (X11 session; user `aadhav`, host `Mirror1`, code at
+`/home/aadhav/MirrorOS`, reached over SSH). The backend is the `mirroros` systemd service and
+the kiosk is Chromium started by Cinnamon's autostart — see `docs/linux-setup.md`. It used to
+be a Surface Pro 4; the Windows path was removed with it, so Linux is the only deploy target
+(macOS is dev only).
 Display is a **15.6" 1920×1080 panel, landscape**, mounted **flush into the top-right corner**
 of a mirror the size of a 43" TV.
 
@@ -26,8 +31,22 @@ week row, `#people-row`, now playing and the health line. It was widened from 60
 two-person layout: the clock's box ends at x=864 (`2 * --mirror-center-x`), so x=980 keeps a
 116px gutter and reclaims space that was previously dead.
 
+The two layouts use the column differently:
+- **Sleek** — the column runs the full panel height with its content vertically centred, the
+  same way `#clock-section` is, so the weather sits on the clock's line instead of up in the
+  corner. The weather is set larger here (`body.layout-sleek` rules) to balance a 300px clock,
+  and `#health-line` is taken out of the flow so its reserved slot can't nudge the centring.
+- **Full** — fills top to bottom: weather + week, then `#people-row`, then now playing pinned
+  to the bottom with `margin-top: auto` (the health line takes the auto margin when nothing is
+  playing). Spacing is a 24px base `gap` plus a little extra between groups.
+
 **Two people share the mirror.** `#people-row` is a two-column grid, one `.person-column` per
-person, each holding that person's name, calendar and commute. Everything else (weather, week,
+person, each holding that person's name, **commute, then calendar** — commute first so a long
+event list can never push it down. The grid has three rows (name / commute / calendar) that
+each column joins with `grid-template-rows: subgrid`, so both commutes start on one line and
+both calendars on another, even if one commute label is longer or one person has none. Gaps
+between those rows are margins on the items, not `row-gap`, so a row empty in both columns
+collapses to nothing. Everything else (weather, week,
 now playing, health) is shared and full-width. Both are keyed by slot — `'a'` and `'b'` — end
 to end: `config.people.{a,b}`, `/api/data`'s `calendar.{a,b}` and `commute.{a,b}`, and
 `.person-column[data-slot]` on the glass. A column with neither calendar nor commute gets
@@ -91,10 +110,10 @@ without anyone restarting the kiosk by hand.
 
 `POST /api/update` → runs `git pull --ff-only` and restarts (see `server/update.js`). Refuses
 on a dirty working tree, takes no branch/remote from the request, and runs `npm install` only
-when `package.json`/`package-lock.json` moved. It exits **non-zero** on purpose: systemd's
-`Restart=always` doesn't care, but Windows Task Scheduler only restarts a task it considers
-failed, so a clean `exit(0)` there would leave the mirror dark. Triggered by the "Update
-mirror" card on /settings.
+when `package.json`/`package-lock.json` moved. It exits **non-zero** on purpose and relies on
+systemd to bring it back: `deploy/mirroros.service` is `Restart=always`, and if that were ever
+loosened to `on-failure` a clean `exit(0)` would leave the mirror dark. Triggered by the
+"Update mirror" card on /settings.
 
 `rev` is a counter bumped on every config change. The mirror polls it
 every 2s and only fetches `/api/data` when the number moves, so a save on the phone lands on
@@ -140,12 +159,20 @@ is a separate client of this endpoint — keep the brain and the audio layer dec
 ### Display power (`server/display.js`)
 `display.sleep.mode` is `'dim'` (default, CSS only — current behaviour byte-for-byte) or
 `'off'` (panel genuinely powers down). A 30s tick compares the desired state to the last one
-it set and only shells out on a change. **One of only two places the server shells out**
+it set and only shells out on a change; `POST /api/config` also calls `display.refresh()` so a
+new sleep setting acts immediately. **One of only two places the server shells out**
 (`server/update.js` is the other) — every
 command is `execFile` with a timeout and swallowed errors, matching the never-crash contract
-in `poller.js`. Windows goes through `deploy/display-power.ps1`; macOS uses `pmset`/`caffeinate`
-so the schedule is testable on the dev machine; other platforms warn once and no-op.
-`MIRROR_DISPLAY_DRYRUN=1` logs instead of acting.
+in `poller.js`. Linux (the mirror) runs `bash deploy/display-power.sh on|off`, which uses
+`xset dpms force off|on` against `DISPLAY=:0` / `~/.Xauthority` — the service runs outside the
+desktop session, so it has to be pointed at it. After waking, the script also runs `xset -dpms`:
+`xset dpms force` silently re-enables X's own idle timer, which would otherwise blank the panel
+~10 min after every wake. X11 only; Cinnamon on Wayland has no DPMS for `xset` to drive. A
+failed command (normal for a tick or two at boot, before the session exists) leaves the state
+unknown so the next tick retries. If the panel was powered off and the mode is switched to
+`'dim'` mid-window, the next tick turns it back on rather than leaving it dark. macOS uses
+`pmset`/`caffeinate` so the schedule is testable on the dev machine; other platforms warn once
+and no-op. `MIRROR_DISPLAY_DRYRUN=1` logs instead of acting.
 Voice activity (any `/api/voice/state` POST, including `idle`) wakes the panel and holds it
 awake 2 min from the end of the exchange.
 `inSleepWindow()` is deliberately duplicated here and in `public/app.js` — sharing needs a
@@ -173,8 +200,16 @@ authoritative would delay the visual dim from 1s to the 60s poll. Change one, ch
   `section` children: a descendant `:empty` also matches `<path>`/`<circle>` inside the icons
   and hides every icon, and `#health-line` must keep its slot so a stale warning can never be
   pushed off the bottom edge
-- The info column fills the panel height almost exactly. Adding a section means taking space
-  from another one — check the worst case with `?layout=full&stale=weather,calendar,commute,pollen`
+- The info column fills the panel height. The calendars are the only part whose height depends
+  on the data, so `fitInfoColumn()` in `app.js` drops events (`.cal-row.trimmed`) from the end
+  of the taller calendar until the column fits, always keeping each person's first event. It
+  re-runs after data, now playing and waking from sleep. That's what lets the sections breathe
+  instead of being budgeted for the worst case, but it only trims calendars — adding a fixed
+  section still takes space from the others. Check the worst case with
+  `?layout=full&spotify&stale=weather,calendar,commute,pollen`
+- Calendar dates read "Today", then the weekday for the next six days, then "Nov 14"
+  (`fmtWhen()`). Inside a week the weekday is unambiguous, and the width it saves goes to the
+  title — at "Wed Nov 4" nearly every title in a person column wrapped
 
 ## Time-of-day modes
 | Mode | Hours | Show |

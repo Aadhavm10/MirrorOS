@@ -144,7 +144,11 @@ function updateClock() {
   document.getElementById('date').textContent = z.date;
 
   const sleeping = forcedSleep || inSleepWindow(z.hour, z.minute, settings.display.sleep);
-  document.body.classList.toggle('sleeping', sleeping);
+  if (sleeping !== document.body.classList.contains('sleeping')) {
+    document.body.classList.toggle('sleeping', sleeping);
+    // The column was display:none while asleep, so the last fit measured nothing.
+    if (!sleeping) fitInfoColumn();
+  }
 
   maybeNightlyReload(z);
 }
@@ -239,6 +243,20 @@ function fmtEventDate(d) {
   return year === new Date().getFullYear() ? base : `${base} '${String(year).slice(2)}`;
 }
 
+// "Today", then the weekday for the rest of the coming week, then a date.
+// Inside seven days a bare "Wed" can only mean one day, and dropping "Nov 4"
+// gives the title most of that width back — at "Wed Nov 4" nearly every
+// title in a 426px column wrapped to two lines.
+function fmtWhen(d) {
+  const now = new Date();
+  const midnight = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate());
+  // Math.round, not floor: a DST change makes one day 23 or 25 hours long.
+  const days = Math.round((midnight(d) - midnight(now)) / 86400000);
+  if (days <= 0) return 'Today';   // includes an all-day event that began earlier
+  if (days < 7) return DAYS[d.getDay()];
+  return fmtEventDate(d);
+}
+
 function renderCalendar(el, events, health, failed) {
   const list = (events || []).slice(0, 5);
 
@@ -249,10 +267,8 @@ function renderCalendar(el, events, health, failed) {
       '<div class="cal-list">' +
       list.map((e) => {
         const d = new Date(e.startISO);
-        // Day and date are one cell: they always read together, and merging
-        // them drops a column boundary the narrow person-column can't spare.
         return '<div class="cal-row">' +
-          `<span class="cal-when">${DAYS[d.getDay()]} ${fmtEventDate(d)}</span>` +
+          `<span class="cal-when">${fmtWhen(d)}</span>` +
           `<span class="cal-time">${e.isAllDay ? 'All day' : fmtClock12(d)}</span>` +
           `<span class="cal-title">${esc(e.title)}</span>` +
         '</div>';
@@ -276,7 +292,7 @@ function renderCalendar(el, events, health, failed) {
 
 function renderSpotify(p) {
   const el = document.getElementById('spotify-section');
-  if (!p || !p.track) { el.innerHTML = ''; return; }
+  if (!p || !p.track) { el.innerHTML = ''; fitInfoColumn(); return; }
   el.classList.toggle('paused', !p.isPlaying);
   el.innerHTML =
     '<div class="section-heading">NOW PLAYING</div>' +
@@ -284,6 +300,7 @@ function renderSpotify(p) {
     `<div class="np-track">${esc(p.track)}</div>` +
     (p.artist ? `<div class="np-artist">${esc(p.artist)}</div>` : '') +
     '</div></div>';
+  fitInfoColumn();
 }
 
 async function fetchSpotify() {
@@ -327,6 +344,33 @@ function renderPeople(data, health) {
     renderCalendar(cal, (data.calendar || {})[slot], health, calFailed);
     renderCommute(com, (data.commute || {})[slot], comFailed);
     col.classList.toggle('empty', !cal.innerHTML && !com.innerHTML);
+  }
+}
+
+// --- Fit --------------------------------------------------------------------
+// The info column has to fit a 1080px panel, and the calendars are the only
+// part whose height depends on the data: five events with two-line titles in
+// the taller column is enough to push now playing and the health line off the
+// bottom edge. Budgeting every section for that worst case meant cramped
+// spacing on the days it doesn't happen, so instead: drop events from the end
+// of the taller calendar until everything fits. Commute sits above the
+// calendar, so trimming never moves it. Re-run after anything that changes the
+// column's height (data, now playing, waking from sleep).
+function fitInfoColumn() {
+  const col = document.getElementById('info-column');
+  for (const row of col.querySelectorAll('.cal-row.trimmed')) row.classList.remove('trimmed');
+  if (!col.offsetHeight) return;   // hidden while sleeping — nothing to measure
+
+  // Bounded: two columns of at most five events, each keeping its first.
+  for (let i = 0; i < 10 && col.scrollHeight > col.clientHeight; i++) {
+    let target = null;
+    for (const list of col.querySelectorAll('.person-column:not(.empty) .cal-list')) {
+      const rows = list.querySelectorAll('.cal-row:not(.trimmed)');
+      if (rows.length < 2) continue;   // always keep each person's next event
+      if (!target || list.offsetHeight > target.list.offsetHeight) target = { list, rows };
+    }
+    if (!target) break;
+    target.rows[target.rows.length - 1].classList.add('trimmed');
   }
 }
 
@@ -410,6 +454,7 @@ async function fetchData() {
     renderPollen(data.pollen);
     renderPeople(data, health);
     renderHealth(health);
+    fitInfoColumn();
   } catch (err) {
     console.error('[mirror] fetchData failed:', err.message);
   }

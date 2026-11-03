@@ -64,6 +64,7 @@ app.post('/api/config', (req, res) => {
   // fires once refreshAll() has actually replaced the cached data, which is the
   // only moment a new city or commute has anything different to show.
   const updated = config.update(req.body);
+  require('./display').refresh();   // a new sleep setting powers the panel now, not in ≤30s
   refreshAll().catch(() => {}).finally(() => config.touch());
   res.json(updated);
 });
@@ -94,9 +95,9 @@ app.post('/api/update', async (req, res) => {
   res.json(result);
 
   if (result.ok && result.changed && result.restart) {
-    // Exit non-zero on purpose: systemd's Restart=always doesn't care, but
-    // Windows Task Scheduler only restarts a task it considers failed, and a
-    // clean exit(0) there would leave the mirror dark until someone noticed.
+    // Exit non-zero on purpose. deploy/mirroros.service says Restart=always,
+    // which restarts on any exit, but if that's ever loosened to on-failure a
+    // clean exit(0) would leave the mirror dark until someone noticed.
     console.log(`[update] ${result.message} — restarting`);
     setTimeout(() => process.exit(1), 500);
   }
@@ -252,10 +253,10 @@ require('./display').start();
 
 // Last line of defence. Node's default is to kill the process on an unhandled
 // rejection, and a dead mirror is worse than a degraded one: nobody is watching
-// the console, and Task Scheduler gives up after a few restarts. The sources
-// already never crash the server (poller.js) — this catches anything that
-// slipped past, keeps the last good data on the glass, and leaves a trail in
-// the log for whoever goes looking.
+// the console, and every crash blanks the glass and drops the in-memory cache
+// until systemd brings it back. The sources already never crash the server
+// (poller.js) — this catches anything that slipped past, keeps the last good
+// data on the glass, and leaves a trail in the log for whoever goes looking.
 process.on('unhandledRejection', (reason) => {
   console.error('[fatal] unhandled rejection:', (reason && reason.stack) || reason);
 });
