@@ -1,15 +1,30 @@
+# MirrorOS backend. Install with:
+#   sudo cp ~/MirrorOS/deploy/mirroros.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mirroros
+#
+# Paths assume user `aadhav` with the checkout at /home/aadhav/MirrorOS, and
+# Node at /usr/bin/node (`which node` to check — an nvm install lives under
+# ~/.nvm instead, and ExecStart has to point there).
+
 [Unit]
 Description=MirrorOS Backend
 After=network.target
 
 [Service]
 Type=simple
-User=mirror
-WorkingDirectory=/home/mirror/MirrorOS
+User=aadhav
+WorkingDirectory=/home/aadhav/MirrorOS
 ExecStart=/usr/bin/node server/index.js
+# Always, not on-failure: the phone's "Update mirror" button restarts the
+# server by exiting, and it has to come back whatever the exit code.
 Restart=always
 RestartSec=5
 Environment=NODE_ENV=production
+# The panel lives in the desktop session, not this service. These let
+# deploy/display-power.sh reach it to power the screen off on the sleep
+# schedule (it defaults to the same values if they're missing).
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/aadhav/.Xauthority
 
 [Install]
 WantedBy=multi-user.target

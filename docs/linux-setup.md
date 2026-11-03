@@ -1,522 +1,261 @@
-# Linux Setup — Surface Pro 4 Smart Mirror
+# Linux Setup: Dell OptiPlex 3090 + Linux Mint
 
-Complete walkthrough for turning a factory-reset Surface Pro 4 into the mirror:
-Debian + the linux-surface kernel, 1920×1080 display, Chromium kiosk, the Node
-backend, and the voice assistant — all starting automatically on boot.
+How the mirror's computer is set up, from a fresh Linux Mint install to the
+display coming up on its own after a power cut. The machine is already set up
+this way; this doc is for checking it, changing it, or rebuilding it.
 
-**Written for someone who has never installed Linux.** Every command is meant to
-be copied exactly. Where something is likely to differ on your machine, it says so.
-
-**Time:** about 2–3 hours, most of it waiting on downloads and one long compile.
-You can stop after any numbered section and pick up later.
-
----
-
-## 0. What you need before starting
-
-| Item | Why |
+| | |
 |---|---|
-| USB drive, 4 GB+ | The Debian installer. **It gets erased.** |
-| USB-A hub | The Surface has exactly one USB port and you need keyboard + drive at once |
-| USB keyboard | The installer can't use the touchscreen |
-| USB microphone | For the voice assistant. The Surface's built-in mics work at arm's length but not across a room |
-| Mini DisplayPort → HDMI adapter | Already connected to the TV mainboard |
-| USB WiFi dongle (~$12) | **Insurance.** The Surface's built-in WiFi is the one flaky part on Linux — see §1 |
+| Computer | Dell OptiPlex 3090 Micro |
+| OS | Linux Mint 22.3 Cinnamon, **X11 session** (the default) |
+| User / hostname | `aadhav` on `Mirror1` |
+| Login | Automatic, no password. Sleep and the screensaver are off |
+| SSH | `ssh aadhav@10.133.84.60` from the Mac |
+| Code | `/home/aadhav/MirrorOS` |
+| Keys | `/home/aadhav/MirrorOS/.env`, readable only by `aadhav` |
+| Panel | 15.6" 1920×1080, landscape, top-right corner of the mirror |
 
-**A few terms**, since this is your first Linux install:
+Two things run the mirror:
 
-- **Terminal** — the text window where you type commands. Everything below happens here.
-- **`sudo`** — "do this as administrator." It asks for your password the first time. The password does **not** appear as you type it, not even dots. That's normal — just type and press Enter.
-- **`nano`** — a simple text editor that runs in the terminal. Save with `Ctrl+O` then `Enter`; exit with `Ctrl+X`.
-- **`systemd` / service** — Linux's way of running a program in the background forever, restarting it if it crashes and starting it at boot. The mirror uses two: one for the web server, one for the voice assistant.
+- **`mirroros`**, a systemd service: the Node server. Starts at boot, restarts if it
+  crashes, and powers the panel on and off on the sleep schedule.
+- **The kiosk**: Chromium fullscreen on `http://localhost:3000`, started by
+  Cinnamon when `aadhav` logs in.
 
----
-
-## 1. Test the hardware BEFORE installing (don't skip this)
-
-The Surface Pro 4's WiFi chip (Marvell 88W8897) is the known weak point on Linux —
-it sometimes isn't detected, or connects unreliably. Every single thing on the
-mirror needs the internet, so find out now, while backing out is free.
-
-You'll do this with a **live USB** — Debian running from the USB stick without
-touching the internal drive. Make the USB first (§2), then come back here.
-
-1. Boot from the USB (§3) and choose **"Live system"** at the boot menu if offered.
-   (If you downloaded the netinst image, it has no live mode — see the note in §2.)
-2. Once a desktop appears, click the network icon and try connecting to your WiFi.
-3. Leave it connected for 5 minutes while you browse a website.
-
-**If WiFi works and stays connected:** great, continue to §2/§3 and install.
-
-**If WiFi isn't detected or keeps dropping:** you have two easy fixes —
-- Install the firmware package after installing Debian: `sudo apt install firmware-marvell` (older Debian: `firmware-libertas`), then reboot.
-- Or just use the USB WiFi dongle. Plug it in and it will almost certainly work
-  with no configuration. This is the reliable path; the dongle costs less than an
-  hour of frustration.
-
-Also worth checking now: plug in the USB mic and confirm the live system sees it
-(open a terminal, run `arecord -l`, and look for your mic in the list).
+Everything below is done over SSH from the Mac unless it says otherwise.
 
 ---
 
-## 2. Make the installer USB (on your Mac)
+## 1. Mint desktop settings
 
-Download the **Debian stable "netinst" image** (amd64) from
-https://www.debian.org/CD/netinst/ — it's about 750 MB.
+Done once, on the mirror itself with a keyboard and mouse plugged in.
 
-> **Tip:** if you want the live-system hardware test in §1, download the
-> **live image with GNOME** from https://www.debian.org/CD/live/ instead (~3 GB).
-> It can both test *and* install. Either works; the live image is friendlier.
-
-Then, in your Mac's Terminal:
-
-```bash
-# 1. Find the USB drive — look for the one matching your USB's size
-diskutil list
-
-# 2. Unmount it (replace disk4 with YOUR disk number from the list above)
-diskutil unmountDisk /dev/disk4
-
-# 3. Write the image (this erases the USB — double-check the disk number!)
-sudo dd if=~/Downloads/debian-*-amd64-netinst.iso of=/dev/rdisk4 bs=1m status=progress
-```
-
-> ⚠️ **Get the disk number right.** `dd` will happily erase your Mac's drive if
-> you point it at the wrong disk. The USB is usually the last one listed and its
-> size will match your USB stick. If unsure, unplug the USB, run `diskutil list`,
-> plug it back in, run it again, and see which one appeared.
-
-This takes a few minutes and prints nothing until it's done. macOS may pop up
-"The disk you inserted was not readable" at the end — that's expected, click
-**Ignore** (macOS just can't read Linux formatting).
-
----
-
-## 3. Boot the Surface from USB
-
-The Surface won't boot from USB until you turn off Secure Boot.
-
-1. **Shut the Surface down completely** (not sleep).
-2. Hold **Volume Up**, press and release **Power**, keep holding Volume Up until
-   the UEFI (firmware settings) screen appears.
-3. Go to **Security** → **Secure Boot** → change to **Disabled**.
-4. Go to **Boot configuration** → drag **USB Storage** to the top of the list.
-5. **Exit** → **Restart now**, with the USB drive plugged in.
-
-If it boots back into a "no operating system" screen or the Surface logo loops,
-the USB wasn't written correctly — redo §2.
-
----
-
-## 4. Install Debian
-
-Choose **Graphical Install** at the boot menu. Then, screen by screen:
-
-| Screen | What to choose |
+| Where | Setting |
 |---|---|
-| Language / location / keyboard | Whatever matches you (English / United States) |
-| Network | Pick your WiFi and enter the password. **If no WiFi appears here**, see §1 — plug in the USB dongle or use ethernet via the hub |
-| Hostname | `mirror` |
-| Domain name | Leave blank |
-| Root password | **Leave both boxes empty** and continue. This makes your own account the admin via `sudo`, which is simpler |
-| Full name / username | `mirror` — ⚠️ **use exactly this**, the service files expect `/home/mirror` |
-| Password | Pick something you'll remember; you'll type it often. Write it down |
-| Partitioning | **Guided – use entire disk** → **All files in one partition** → **Finish and write changes** → **Yes** |
-| Software selection | ⚠️ **Uncheck everything**, then check **only** `SSH server` and `standard system utilities`. Use Space to toggle. **Do not install a desktop environment** — the mirror runs a minimal graphics stack instead |
-| GRUB bootloader | **Yes**, install it, and choose the internal disk (usually `/dev/sda` or `/dev/nvme0n1`) |
+| System Settings → Login Window → Users | Automatic login: `aadhav` |
+| System Settings → Power Management | Turn off the screen when inactive: **Never**. Suspend when inactive: **Never** |
+| System Settings → Screensaver | Delay before starting the screensaver: **Never**. Lock the computer: off |
+| System Settings → Notifications | Notifications: **off**. Otherwise Update Manager and others pop up over the mirror |
+| System Settings → Display | 1920×1080, refresh rate as offered, rotation **Normal**, user interface scaling **Normal (100%)** |
+| Welcome Screen | Untick "Show this dialog at startup" |
+| Login screen, session menu | **Cinnamon**, not "Cinnamon on Wayland". Screen power-off (§7) only works on X11 |
 
-Then it reboots. **Remove the USB drive** when it says to.
+MirrorOS turns the screen off itself, on the schedule set from the phone. Mint's
+own screen blanking has to stay at Never so the two don't fight.
 
-You'll land on a black screen with a text login prompt. That's correct — there's
-no desktop by design. Log in with `mirror` and your password.
-
----
-
-## 5. Get on the network and find your IP
-
-If you set up WiFi during install, you're already online. Test it:
+To check the session type over SSH:
 
 ```bash
-ping -c 3 debian.org
+loginctl show-session $(loginctl list-sessions --no-legend | awk '/seat0/ {print $1; exit}') -p Type
 ```
 
-If that fails, connect manually:
+It should print `Type=x11`.
+
+## 2. BIOS: turn back on after a power cut
+
+Without this, a power blip leaves the mirror off until someone presses the button.
+
+1. Reboot and tap **F2** at the Dell logo.
+2. **Power Management → AC Behavior** → **Power On**.
+3. Apply, exit.
+
+## 3. SSH and a fixed address
+
+SSH is already on. To set it up on a fresh install:
 
 ```bash
-sudo nmtui        # arrow keys → "Activate a connection" → pick your WiFi
+sudo apt install -y openssh-server
 ```
 
-Now find the Surface's IP address — **write this down**, you'll use it constantly:
+Then give the mirror a **DHCP reservation** for `10.133.84.60` in the router, so
+the address in this doc and on the phone's home-screen icon never changes.
+
+## 4. Node.js and git
 
 ```bash
-hostname -I
+node --version     # needs v20 or newer
+which node         # should be /usr/bin/node, which the service file expects
 ```
 
-You'll get something like `192.168.1.87`. From now on you can do everything from
-your Mac instead of hunching over the Surface with a USB keyboard:
-
-```bash
-ssh mirror@192.168.1.87
-```
-
-That's much more comfortable — copy-paste works, and you can keep this guide open
-in the same window. **Recommended: do the rest of this guide over SSH from your Mac.**
-
----
-
-## 6. Install the linux-surface kernel
-
-This adds proper Surface hardware support (WiFi firmware, touchscreen, battery,
-sensors). Debian's stock kernel mostly works but this makes it solid.
-
-```bash
-sudo apt update
-sudo apt install -y wget gpg
-
-# Add the linux-surface signing key and repository
-wget -qO - https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
-  | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/surface.gpg
-
-echo "deb [arch=amd64] https://pkg.surfacelinux.com/debian release main" \
-  | sudo tee /etc/apt/sources.list.d/surface.list
-
-sudo apt update
-sudo apt install -y linux-image-surface linux-headers-surface iptsd libwacom-surface
-sudo apt install -y firmware-linux firmware-marvell   # WiFi + graphics firmware
-
-sudo reboot
-```
-
-Wait a minute, SSH back in, and confirm you're on the new kernel:
-
-```bash
-uname -r        # should contain the word "surface"
-```
-
-> If `firmware-marvell` isn't found, try `firmware-libertas`, or skip it — it only
-> matters if you're using the built-in WiFi rather than a dongle.
-
----
-
-## 7. Install Node.js
+If Node is missing or too old:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
 sudo apt install -y nodejs git
-node --version      # should print v20.x or newer
 ```
 
----
+If `which node` prints something under `~/.nvm`, edit `ExecStart=` in
+`deploy/mirroros.service` to that path before §6.
 
-## 8. Deploy MirrorOS
+## 5. The code and the keys
 
 ```bash
-cd /home/mirror
+cd ~
 git clone https://github.com/Aadhavm10/MirrorOS.git
 cd MirrorOS
 npm install
 cp .env.example .env
 nano .env
+chmod 600 .env     # keys readable by aadhav only
 ```
 
-Fill in the keys. Reminder of who owns what:
+`.env` holds only keys and `PORT`/`TZ`. Names, the weather city, commutes, the
+layout and the sleep schedule are set from the phone (§10).
 
-| Setting | Value |
-|---|---|
-| `TZ` | `America/Chicago` (or her timezone) |
-| `CALDAV_USERNAME` / `CALDAV_PASSWORD` | **Her** Apple ID + an app-specific password from appleid.apple.com |
-| `ANTHROPIC_API_KEY` | Yours — the voice assistant brain |
-| `GOOGLE_MAPS_API_KEY` | Yours — commute + pollen |
-| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | **Her** Spotify (Premium) — see §14 |
-
-Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
-
-> **Note:** `server/config.json` (weather city, commute addresses) is *not* in git,
-> so a fresh install starts at the defaults in `.env`. You'll set the real values
-> from the phone settings page in §15 — no need to hand-edit anything.
-
-Test that it runs:
+## 6. The backend service
 
 ```bash
-node server/index.js
-```
-
-You should see `MirrorOS running at http://localhost:3000`. Press `Ctrl+C` to stop it.
-
----
-
-## 9. Run the backend as a service
-
-This makes the server start at boot and restart itself if it ever crashes.
-
-```bash
-sudo cp /home/mirror/MirrorOS/deploy/mirroros.service /etc/systemd/system/
+sudo cp ~/MirrorOS/deploy/mirroros.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now mirroros
-
-# Check it
-systemctl status mirroros          # should say "active (running)" — press q to exit
-curl http://localhost:3000/api/data
+systemctl status mirroros      # "active (running)". Press q to exit
+curl -s localhost:3000/api/rev # prints {"rev":…,"boot":…}
 ```
 
-That `curl` should print a wall of JSON with weather and calendar data. If it does,
-the backend is fully working.
+The service runs as `aadhav` from `/home/aadhav/MirrorOS`, so the phone's
+**Update mirror** button can `git pull` the checkout and restart it.
 
-**Useful later:**
-```bash
-journalctl -u mirroros -f          # watch the server log live (Ctrl+C to stop)
-sudo systemctl restart mirroros    # restart after changing .env
-```
-
----
-
-## 10. Graphics: minimal X + Chromium kiosk
-
-There's no desktop — just enough to put one fullscreen browser window on the panel.
+**Only one copy should run.** If the server was ever started some other way
+(Startup Applications, a terminal left open), that copy holds port 3000 and the
+service will crash-loop. Check with:
 
 ```bash
-sudo apt install --no-install-recommends -y \
-  xorg openbox chromium unclutter x11-xserver-utils
+ss -ltnp | grep 3000     # exactly one node process
 ```
 
-**Log in automatically at boot**, so no keyboard is ever needed:
+and remove any MirrorOS entry from **Menu → Startup Applications** other than the
+kiosk below.
+
+## 7. The kiosk
 
 ```bash
-sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
-sudo nano /etc/systemd/system/getty@tty1.service.d/override.conf
+sudo apt install -y chromium unclutter
+mkdir -p ~/.config/autostart
+cp ~/MirrorOS/deploy/chromium-autostart.desktop ~/.config/autostart/mirroros-kiosk.desktop
+chmod +x ~/MirrorOS/deploy/chromium-launch.sh
 ```
 
-Paste exactly:
+At the next login, `deploy/chromium-launch.sh` waits for the server, then opens
+Chromium fullscreen with no first-run screens, crash bubbles or keyring prompt.
+`unclutter` hides the mouse pointer.
 
-```ini
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin mirror --noclear %I $TERM
-```
-
-**Start the graphics automatically after that login:**
+To restart just the kiosk without rebooting:
 
 ```bash
-nano /home/mirror/.bash_profile
+pkill chromium
+DISPLAY=:0 nohup ~/MirrorOS/deploy/chromium-launch.sh >/dev/null 2>&1 &
 ```
 
-Add at the end:
+## 8. Screen power-off on the sleep schedule
+
+The phone's **Sleep schedule** card has two modes:
+
+- **Dim the clock**: the page dims itself and the panel stays on.
+- **Turn the screen off**: the server runs `deploy/display-power.sh off` at the
+  start of the window and `on` at the end. That uses `xset dpms`, which cuts the
+  video signal so the panel drops into standby. It takes effect as soon as you
+  press Save if you're already inside the window.
+
+Test it by hand first:
 
 ```bash
-if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-  exec startx
-fi
+bash ~/MirrorOS/deploy/display-power.sh off    # panel goes dark within a few seconds
+bash ~/MirrorOS/deploy/display-power.sh on
 ```
 
-**Define what the graphical session runs:**
+Then watch it happen on the schedule:
 
 ```bash
-nano /home/mirror/.xinitrc
+journalctl -u mirroros -f | grep display
 ```
 
-Paste:
+| You see | Meaning |
+|---|---|
+| `[display] display off` / `display on` | Working |
+| `could not turn display …: … unable to open display ":0"` | No desktop session yet. Normal for the first tick or two after boot; otherwise check auto-login (§1) |
+| `… Authorization required …` | The desktop's X cookie isn't at `~/.Xauthority`. Check `ls -la ~/.Xauthority` while logged in |
+| `… does not have extension for dpms option` | The session is Wayland. Switch to Cinnamon on X11 (§1) |
+| Nothing at all | Sleep mode is "Dim", the schedule isn't enabled, or you're outside the window |
+
+If the commands succeed but the panel shows a "No signal" box and stays lit, its
+controller board is ignoring standby. Look in the panel's own on-screen menu for an
+auto power-off or "no signal → standby" option. If there isn't one, only **Dim**
+will work on that panel.
+
+Talking to the mirror wakes the panel and keeps it on for two minutes after the
+conversation ends.
+
+## 9. Voice and Spotify
+
+- **Voice assistant**: follow `docs/voice-setup.md` → "Production setup (OptiPlex,
+  Linux Mint)". Install it after §6, because the voice service starts after the
+  backend.
+- **Spotify**: the login has to happen in a browser that reaches `127.0.0.1:3000`
+  on the mirror. Tunnel it from the Mac:
+
+  ```bash
+  ssh -L 3000:localhost:3000 aadhav@10.133.84.60
+  ```
+
+  Leave that running, open **http://127.0.0.1:3000/spotify/login** on the Mac and
+  log in with the Spotify account that will use it. `docs/spotify-setup.md` covers
+  creating the developer app first.
+
+## 10. Settings from a phone
+
+**http://10.133.84.60:3000/settings**: weather city, both people's names and
+commutes, which calendars to show, Sleek/Full, whose column to show, the sleep
+schedule and screen-off mode, and the Update button. In Safari, Share → **Add to
+Home Screen** makes it an app icon.
+
+## 11. Power-cut test
+
+- [ ] BIOS AC Behavior = Power On (§2)
+- [ ] Automatic login (§1)
+- [ ] `systemctl is-enabled mirroros` says `enabled` (§6)
+- [ ] `~/.config/autostart/mirroros-kiosk.desktop` exists (§7)
+- [ ] `systemctl is-enabled mirrorvoice` says `enabled`, if voice is set up (§9)
+
+Then pull the plug, plug it back in, and walk away. The mirror should come back
+on its own, with no keyboard touched.
+
+## 12. Updating
+
+From the phone: **Settings → Update mirror**. It runs `git pull --ff-only`, runs
+`npm install` only if dependencies changed, and restarts the server. The kiosk
+notices the restart and reloads itself within a couple of seconds.
+
+By hand:
 
 ```bash
-#!/bin/bash
-xset s off          # never blank the screen
-xset -dpms          # never power down the display
-xset s noblank
-unclutter -idle 1 & # hide the mouse cursor
-exec /home/mirror/MirrorOS/deploy/chromium-launch.sh
-```
-
-Make both executable:
-
-```bash
-chmod +x /home/mirror/.xinitrc /home/mirror/MirrorOS/deploy/chromium-launch.sh
-```
-
-Reboot and the mirror display should come up on its own:
-
-```bash
-sudo reboot
-```
-
----
-
-## 11. Check the display resolution
-
-The 15.6" panel runs **landscape at its native 1920×1080** — no rotation needed.
-Confirm the resolution is right; anything other than 1920×1080 will make the
-layout look wrong, since the CSS is sized to that panel exactly.
-
-SSH in while the screen is on:
-
-```bash
-DISPLAY=:0 xrandr
-```
-
-Look for the line ending in `connected` — e.g. `HDMI-1`, `HDMI-A-1`, or `DP-1` —
-and check that `1920x1080` is the mode marked with `*`. If it picked something
-else, force it (swap in your connector name):
-
-```bash
-DISPLAY=:0 xrandr --output HDMI-1 --mode 1920x1080
-```
-
-To make it permanent:
-
-```bash
-sudo nano /etc/X11/xorg.conf.d/90-monitor.conf
-```
-
-```
-Section "Monitor"
-    Identifier "HDMI-1"
-    Option "PreferredMode" "1920x1080"
-EndSection
-```
-
-Reboot to verify it survives a restart.
-
----
-
-## 12. Audio — speakers and microphone
-
-The voice assistant needs **both** output (to talk) and input (to listen).
-
-```bash
-sudo apt install -y alsa-utils
-aplay -l      # playback devices — find the HDMI one going to the TV
-arecord -l    # capture devices — find your USB microphone
-```
-
-Test the speakers:
-
-```bash
-speaker-test -c 2 -t wav -l 1
-```
-
-Test the mic (records 5 seconds, then plays it back):
-
-```bash
-arecord -d 5 -f cd /tmp/test.wav && aplay /tmp/test.wav
-```
-
-If you hear yourself, audio is done. If the wrong device is used, note the card
-numbers from `aplay -l` / `arecord -l` — you'll set them explicitly in the voice
-config in the next step.
-
----
-
-## 13. Install the voice assistant
-
-Follow **`docs/voice-setup.md` → "Production setup (Surface Pro 4, Debian x86)"**.
-It covers the Python environment, building whisper.cpp, downloading the models,
-picking audio devices, and the `mirrorvoice` systemd service.
-
-Two heads-ups:
-
-- **Building whisper.cpp takes 5–15 minutes** on this i5 and prints a lot of text.
-  That's normal — let it finish.
-- Install it **after** §9, because the voice service is configured to start after
-  the backend.
-
-When it's done, verify both services are running:
-
-```bash
-systemctl status mirroros mirrorvoice
-journalctl -u mirrorvoice -f      # then say "Hey Jarvis" and watch the log
-```
-
----
-
-## 14. Connect Spotify (needs her account)
-
-Spotify's login has to happen in a browser that can reach `127.0.0.1:3000` **on the
-Surface itself**. The easy way is an SSH tunnel from your Mac — no keyboard needed
-on the mirror:
-
-```bash
-# On your Mac:
-ssh -L 3000:localhost:3000 mirror@192.168.1.87
-```
-
-Leave that running, then open **http://127.0.0.1:3000/spotify/login** in your Mac's
-browser. It's your Mac's browser, but the connection is tunneled to the Surface, so
-Spotify's redirect lands correctly. Log in as **her** Spotify account and approve.
-
-See `docs/spotify-setup.md` for creating the developer app first — and note the
-warning there: create the app while logged in as the account that will use it.
-
----
-
-## 15. Set the location and commute from a phone
-
-Everything user-facing is configured from the phone settings page — no terminal:
-
-**http://192.168.1.87:3000/settings** (your Surface's IP)
-
-Set the weather city and the commute addresses there. On her iPhone, Safari →
-Share → **Add to Home Screen** turns it into an app icon.
-
----
-
-## 16. Survive a power cut
-
-The mirror should come back on its own after the power blips. You've already done
-most of this; verify:
-
-- [ ] UEFI (Volume Up + Power at boot) → **Boot configuration** → enable power-on
-      after AC restore, if your firmware offers it
-- [ ] Autologin configured (§10)
-- [ ] X starts on login (§10)
-- [ ] `mirroros` service enabled (§9)
-- [ ] `mirrorvoice` service enabled (§13)
-- [ ] Chromium launched with crash-restore suppression (§10 — it's in the script)
-
-**Test it for real:** pull the power cord, plug it back in, walk away, and confirm
-the mirror comes back with no keyboard touched. Better to find out now than at her house.
-
-> **Battery note:** the Surface has an internal battery, so "power cut" means it
-> keeps running until the battery dies, then boots when power returns. If you want
-> it to shut down cleanly on a long outage, that's a future addition.
-
----
-
-## 17. Updating the mirror later
-
-```bash
-ssh mirror@192.168.1.87
-cd MirrorOS
+cd ~/MirrorOS
 git pull
-npm install                        # only if package.json changed
+npm install                          # only if package.json changed
 sudo systemctl restart mirroros
-sudo systemctl restart mirrorvoice # only if the voice code changed
+sudo systemctl restart mirrorvoice   # only if voice/ changed
 ```
 
-The display picks up frontend changes on its own within 60 seconds. To force it:
+The update button refuses to run if files were edited on the mirror itself
+(`git status` shows changes), so nothing local gets overwritten.
 
-```bash
-pkill chromium      # .xinitrc relaunches it automatically
-```
-
----
-
-## 18. When something goes wrong
+## 13. When something goes wrong
 
 | Symptom | Try this |
 |---|---|
-| Black screen, no mirror UI | `systemctl status mirroros` — is the backend running? Then `DISPLAY=:0 xrandr` — is X up? |
-| Mirror shows but no data | `journalctl -u mirroros -n 50` — look for `[poller]` errors; usually a bad key in `.env` |
+| Black screen, no mirror | `systemctl status mirroros`. Is the server running? Then `pgrep -a chromium`. Is the kiosk? |
+| Mirror shows but no data | `journalctl -u mirroros -n 50`. Look for `[poller]` errors, usually a bad key in `.env` |
+| "… not updating" or "Offline" on the glass | The network or one API is down. The mirror keeps showing the last good data, dimmed |
+| Screen dims at night instead of turning off | Sleep mode is "Dim", or see the table in §8 |
+| Screen blanks during the day | Mint's power settings (§1) are back on. Also check `DISPLAY=:0 xset q`: the DPMS line should say `Disabled` |
+| Keyring or "Restore pages" dialog over the mirror | The kiosk wasn't started by `chromium-launch.sh`. Check the autostart entry (§7) |
+| Layout runs off the edge | Display isn't 1920×1080 or scaling isn't 100% (§1). `DISPLAY=:0 xrandr` shows the current mode |
 | Voice doesn't respond | `journalctl -u mirrorvoice -f`, say the wake word, watch for `[voice] wake` |
-| Voice hears but doesn't answer | Check `ANTHROPIC_API_KEY` in `.env`, then `sudo systemctl restart mirroros` |
-| No sound | `aplay -l`, then set the right device in `voice/voice.env` |
-| Screen goes blank after a while | The `xset` lines in `.xinitrc` (§10) are missing or misspelled |
-| Can't SSH in | The IP changed — check your router, or set a DHCP reservation for the Surface |
-| Display upside down | `--rotate left` instead of `right` in §11 |
-
-**Commands worth remembering:**
+| Can't SSH in | The IP changed. Check the router, and set the DHCP reservation (§3) |
 
 ```bash
 systemctl status mirroros mirrorvoice   # are both alive?
-journalctl -u mirroros -n 50            # last 50 log lines
+journalctl -u mirroros -n 50            # last 50 server log lines
 journalctl -u mirrorvoice -f            # follow the voice log live
-sudo systemctl restart mirroros         # restart after config changes
+sudo systemctl restart mirroros         # after changing .env
 sudo reboot                             # when in doubt
 ```

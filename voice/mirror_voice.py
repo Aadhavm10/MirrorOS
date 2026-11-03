@@ -5,7 +5,7 @@ Wake word (openWakeWord) -> record until silence (webrtcvad) ->
 transcribe (whisper.cpp) -> POST /api/assistant -> speak reply (Piper).
 
 Everything is CPU-only. All paths and devices come from env vars (or
-voice/voice.env), so the same file runs on the dev Mac and the Surface.
+voice/voice.env), so the same file runs on the dev Mac and the mirror.
 
     python mirror_voice.py                 # normal operation
     python mirror_voice.py --echo          # speak transcript back, skip assistant

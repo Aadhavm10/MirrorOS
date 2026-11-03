@@ -36,18 +36,21 @@
 
       <section id="week-section"></section>
 
-      <!-- One column per person: their calendar above their commute. Shared
-           sections (weather, week, Spotify, health) stay full width. -->
+      <!-- One column per person: name, then commute, then calendar. Commute
+           sits above the calendar so it can't be pushed down by a long event
+           list, and the columns share grid rows (style.css) so both people's
+           commutes and calendars start on the same line. Shared sections
+           (weather, week, Spotify, health) stay full width. -->
       <div id="people-row">
         <div class="person-column" data-slot="a">
           <div class="person-name"></div>
-          <section class="calendar-section"></section>
           <section class="commute-section"></section>
+          <section class="calendar-section"></section>
         </div>
         <div class="person-column" data-slot="b">
           <div class="person-name"></div>
-          <section class="calendar-section"></section>
           <section class="commute-section"></section>
+          <section class="calendar-section"></section>
         </div>
       </div>
 

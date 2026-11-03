@@ -4,9 +4,10 @@
 // still reads as a glowing grey rectangle. With display.sleep.mode = 'off' the
 // panel actually powers down.
 //
-// This is the only place the server shells out, so it is built to fail safe —
-// every command is fire-and-forget with a timeout, and any error is logged and
-// swallowed. A display that won't blank must never take the mirror down.
+// One of only two places the server shells out (update.js is the other), so
+// it is built to fail safe: every command is execFile with a timeout, and any
+// error is logged and swallowed. A display that won't blank must never take
+// the mirror down.
 
 const { execFile } = require('child_process');
 const path = require('path');
@@ -17,9 +18,10 @@ const TICK_MS = 30 * 1000;        // finer than the 60s data poll, so schedule
 const VOICE_HOLD_MS = 2 * 60 * 1000;  // stay awake this long after talking
 const CMD_TIMEOUT_MS = 15 * 1000;
 
-const PS_SCRIPT = path.join(__dirname, '..', 'deploy', 'display-power.ps1');
+const SH_SCRIPT = path.join(__dirname, '..', 'deploy', 'display-power.sh');
 
 let lastState = null;      // 'on' | 'off' | null (unknown — e.g. just booted)
+let poweredOff = false;    // true once an 'off' has actually succeeded
 let voiceHoldUntil = 0;
 let warnedUnsupported = false;
 
@@ -51,15 +53,13 @@ function inSleepWindow(hour, minute, sleep) {
 
 // --- Platform commands ------------------------------------------------------
 function commandFor(state) {
-  if (process.platform === 'win32') {
-    return {
-      file: 'powershell.exe',
-      args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-             '-File', PS_SCRIPT, '-State', state],
-    };
+  if (process.platform === 'linux') {
+    // The mirror itself. Run through bash rather than executed directly so a
+    // checkout that lost the script's exec bit still works.
+    return { file: 'bash', args: [SH_SCRIPT, state] };
   }
   if (process.platform === 'darwin') {
-    // Dev machine only, so the schedule can be exercised without a Surface.
+    // Dev machine only, so the schedule can be exercised off the mirror.
     return state === 'off'
       ? { file: 'pmset', args: ['displaysleepnow'] }
       : { file: 'caffeinate', args: ['-u', '-t', '1'] };
@@ -73,6 +73,7 @@ function apply(state) {
   if (process.env.MIRROR_DISPLAY_DRYRUN === '1') {
     console.log(`[display] (dry run) would turn display ${state}`);
     lastState = state;
+    poweredOff = state === 'off';
     return;
   }
 
@@ -85,14 +86,20 @@ function apply(state) {
     }
     return;
   }
-  execFile(cmd.file, cmd.args, { timeout: CMD_TIMEOUT_MS }, (err) => {
+  execFile(cmd.file, cmd.args, { timeout: CMD_TIMEOUT_MS }, (err, stdout, stderr) => {
     if (err) {
-      // Leave lastState as-is so the next tick retries rather than assuming
-      // the panel reached the state we asked for.
+      // Leave lastState unknown so the next tick retries rather than assuming
+      // the panel reached the state we asked for. At boot this is the normal
+      // path for a tick or two: the server comes up before the desktop
+      // session, and there's no X display to talk to yet.
       lastState = null;
-      console.error(`[display] could not turn display ${state}:`, err.message);
+      // Whole stderr on one line: X puts the useful part ("Authorization
+      // required") on the line before "unable to open display".
+      const detail = (stderr || err.message).toString().trim().replace(/\s*\n\s*/g, ' | ');
+      console.error(`[display] could not turn display ${state}: ${detail}`);
       return;
     }
+    poweredOff = state === 'off';
     console.log(`[display] display ${state}`);
   });
   lastState = state;
@@ -103,10 +110,13 @@ function tick() {
   const { display, weather } = config.get();
   const sleep = display.sleep || {};
 
-  // 'dim' is the default and means hands off — the CSS dim is the whole effect,
-  // and this module issues no commands at all.
+  // 'dim' is the default and means hands off — the CSS dim is the whole effect.
+  // The one exception: if we powered the panel down and the setting was then
+  // switched to 'dim' mid-window, hand it back switched on. Otherwise it would
+  // stay dark until something else woke it, and nothing else would.
   if (sleep.mode !== 'off') {
-    lastState = null;   // we're not driving the panel; forget what we last set
+    if (poweredOff) apply('on');
+    else lastState = null;   // not driving the panel; forget what we last set
     return;
   }
 
@@ -131,4 +141,10 @@ function start() {
   setInterval(tick, TICK_MS);
 }
 
-module.exports = { start, noteVoiceActivity };
+// Called right after a settings save, so choosing "Turn the screen off" during
+// the sleep window takes effect now rather than on the next 30s tick.
+function refresh() {
+  try { tick(); } catch (err) { console.error('[display] refresh failed:', err.message); }
+}
+
+module.exports = { start, refresh, noteVoiceActivity };

@@ -1,5 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=MirrorOS Chromium
-Exec=/home/mirror/MirrorOS/deploy/chromium-launch.sh
+Name=MirrorOS Kiosk
+Comment=Opens the mirror display fullscreen at login
+Exec=/home/aadhav/MirrorOS/deploy/chromium-launch.sh
 X-GNOME-Autostart-enabled=true
+X-GNOME-Autostart-Delay=3
