@@ -8,9 +8,9 @@ HTML/CSS/JS frontend, with no build step and no database.
 | | |
 |---|---|
 | **Computer** | Dell OptiPlex 3090 Micro |
-| **OS** | Linux Mint 22.3 Cinnamon (X11 session). Logs in automatically with no password; sleep and the screensaver are off |
+| **OS** | Linux Mint 22.3 Cinnamon (X11 session), booting straight into an auto-login kiosk session; sleep and the screensaver are off |
 | **User / hostname** | `aadhav` on `Mirror1` |
-| **Remote access** | SSH from the Mac: `ssh aadhav@10.133.84.60` |
+| **Remote access** | SSH from the Mac: `ssh aadhav@<mirror-ip>` (a DHCP reservation keeps the address fixed) |
 | **Code** | `/home/aadhav/MirrorOS`, run by Node.js as the `mirroros` systemd service |
 | **Keys** | `/home/aadhav/MirrorOS/.env`, readable only by `aadhav` |
 | **Display** | 15.6" 1920×1080 panel, landscape, flush in the top-right corner of a 43" mirror |
@@ -33,7 +33,9 @@ changes, recompute `--mirror-center-x` in `public/style.css` (the maths is in
   for two minutes.
 
 Everything a person would change (names, weather city, commutes, layout, sleep)
-is set from a phone at **http://10.133.84.60:3000/settings**.
+is set from a phone at `http://<mirror-ip>:3000/settings`. The settings page and
+the update endpoint have no login and are meant for the home network only, so
+port 3000 should never be forwarded to the internet.
 
 ## Quick start (development)
 
